@@ -882,10 +882,56 @@ function silenceAdhan() {
   document.getElementById('silence-btn').style.display = 'none';
 }
 
-function demoAdhan() {
+async function demoAdhan() {
   if (!audioUnlocked) { document.getElementById('sound-overlay').classList.add('visible'); return; }
-  playAdhan();
-  if (currentAdhan) setTimeout(silenceAdhan, 5000);
+  silenceAdhan();
+
+  // Try CDN MP3 first; fall back to a synthetic tone if it fails (URL 404 / CORS)
+  const audio = new Audio(ADHAN_URL);
+  let mpgOk = false;
+
+  try {
+    await new Promise((resolve, reject) => {
+      audio.oncanplaythrough = resolve;
+      audio.onerror = reject;
+      setTimeout(reject, 4000); // give 4 s to load
+    });
+    mpgOk = true;
+  } catch(_) { /* fall through to tone */ }
+
+  if (mpgOk) {
+    currentAdhan = audio;
+    audio.play().catch(() => { mpgOk = false; playTestTone(); });
+    document.getElementById('adhan-wave').style.display = 'flex';
+    document.getElementById('silence-btn').style.display = 'inline-block';
+    audio.addEventListener('ended', silenceAdhan);
+    setTimeout(silenceAdhan, 10000);
+  } else {
+    playTestTone();
+  }
+}
+
+// Synthetic tone — confirms speakers work even when the CDN MP3 is unavailable
+function playTestTone() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // Three rising tones mimicking a simple call
+    const notes = [392, 440, 494, 523, 494, 440, 523];
+    let t = ctx.currentTime + 0.05;
+    notes.forEach(freq => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.28, t + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+      osc.start(t); osc.stop(t + 0.4);
+      t += 0.32;
+    });
+    setTimeout(() => ctx.close(), 4000);
+  } catch(e) { console.error('Tone play failed', e); }
 }
 
 function scheduleAdhans() {
@@ -962,24 +1008,26 @@ function renderWeather(d) {
   const temp = Math.round(cur.temperature_2m);
   const feel = Math.round(cur.apparent_temperature);
 
-  // Find hourly indices for 08, 12, 16, 20 — guard null/NaN from past slots
-  const SLOTS = ['T08:00','T12:00','T16:00','T20:00'];
   const safeVal = (v, unit='') => v != null && !isNaN(v) ? Math.round(v) + unit : '—';
 
-  const cols = SLOTS.map(suffix => {
-    const idx = hrly.time.findIndex(t => t.endsWith(suffix));
-    if (idx < 0) return null;
-    const slotWmo = getWMO(hrly.weather_code[idx]);
-    const rain = hrly.precipitation_probability[idx] ?? 0;
-    return {
-      time: suffix.slice(1),
-      icon: slotWmo.icon,
-      iconColor: slotWmo.color,
-      temp: safeVal(hrly.temperature_2m[idx], '°'),
-      wind: safeVal(hrly.wind_speed_10m[idx], 'm/s'),
-      rain
-    };
-  });
+  // Pick next 4 upcoming slots whose hour is a multiple of 3 (avoids past/null data)
+  const nowMs = Date.now();
+  const cols = hrly.time
+    .map((t, i) => ({ t, i, dt: new Date(t) }))
+    .filter(({dt}) => dt.getTime() > nowMs && dt.getHours() % 3 === 0)
+    .slice(0, 4)
+    .map(({dt, i}) => {
+      const slotWmo = getWMO(hrly.weather_code[i]);
+      const rain = hrly.precipitation_probability[i] ?? 0;
+      return {
+        time: pad(dt.getHours()) + ':00',
+        icon: slotWmo.icon,
+        iconColor: slotWmo.color,
+        temp: safeVal(hrly.temperature_2m[i], '°'),
+        wind: safeVal(hrly.wind_speed_10m[i], 'm/s'),
+        rain
+      };
+    });
 
   const colsHtml = cols.map(c => c ? `
     <div class="hcol">
