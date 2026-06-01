@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1280, initial-scale=1.0">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0d1117">
+  <title>Home Dashboard</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/ical.js/build/ical.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%;
+      background: #000;
+      display: flex; align-items: center; justify-content: center;
+      font-family: system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    /* ── Dashboard shell ── */
+    .db {
+      background: #0d1117;
+      width: 1280px; height: 800px;
+      padding: 14px;
+      color: #e6edf3;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .db-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.05fr 1.25fr;
+      grid-template-rows: 1fr auto;
+      gap: 10px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: #161b22;
+      border: 0.5px solid #30363d;
+      border-radius: 10px;
+      padding: 11px 13px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .clabel {
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      color: #8b949e;
+      text-transform: uppercase;
+      margin-bottom: 7px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .ibtn {
+      background: none;
+      border: 0.5px solid #30363d;
+      border-radius: 5px;
+      color: #8b949e;
+      padding: 10px 14px;
+      font-size: 11px;
+      cursor: pointer;
+      font-family: inherit;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .ibtn:hover { color: #e6edf3; border-color: #58a6ff; }
+
+    /* ── Top bar ── */
+    .top-bar {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      margin-bottom: 10px;
+      flex-shrink: 0;
+    }
+    .top-btn {
+      background: rgba(255,255,255,0.04);
+      border: 0.5px solid #30363d;
+      border-radius: 6px;
+      color: #8b949e;
+      padding: 10px 14px;
+      font-size: 11px;
+      cursor: pointer;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      min-height: 44px;
+    }
+    .top-btn:hover { color: #e6edf3; border-color: #8b949e; }
+    .top-btn.night-active { background: rgba(240,180,40,0.1); border-color: rgba(240,180,40,0.4); color: #f0b429; }
+
+    /* ── Clock ── */
+    .time-big { font-size: 56px; font-weight: 500; line-height: 1; color: #e6edf3; letter-spacing: -3px; }
+    .date-str { font-size: 13px; color: #8b949e; margin-top: 5px; }
+    #clock-analog { display: none; flex-direction: column; align-items: center; gap: 4px; }
+    .ampm-lbl { font-size: 13px; color: #8b949e; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 2px; }
+
+    /* ── Prayer times ── */
+    .next-prayer-block {
+      margin-top: 9px;
+      background: rgba(63,185,80,0.08);
+      border: 0.5px solid rgba(63,185,80,0.25);
+      border-radius: 8px;
+      padding: 9px 11px;
+      flex-shrink: 0;
+    }
+    .np-label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #3fb950; margin-bottom: 4px; opacity: 0.8; }
+    .np-name { font-size: 30px; font-weight: 500; color: #3fb950; line-height: 1; }
+    .np-time { font-size: 20px; color: #3fb950; opacity: 0.75; }
+    .np-cd { font-size: 13px; color: #8b949e; margin-top: 4px; }
+    .prayer-list { margin-top: 8px; flex: 1; overflow: hidden; }
+    .prayer-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 0;
+      border-bottom: 0.5px solid #21262d;
+      font-size: 14px;
+    }
+    .prayer-row:last-of-type { border-bottom: none; }
+    .pn { color: #c9d1d9; }
+    .pt { color: #8b949e; }
+    .p-next { background: rgba(63,185,80,0.07); border-radius: 5px; padding: 4px 7px; margin: 1px -7px; }
+    .p-next .pn, .p-next .pt { color: #3fb950; font-weight: 500; }
+    .p-shuruq .pn { color: #f0b429; font-size: 12px; font-style: italic; }
+    .p-shuruq .pt { color: #f0b429; font-size: 12px; }
+    .adhan-row { margin-top: 8px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; flex-shrink: 0; }
+    .tog-on {
+      background: rgba(63,185,80,0.12);
+      border: 0.5px solid #3fb950;
+      border-radius: 20px;
+      color: #3fb950;
+      font-size: 11px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-family: inherit;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .tog-off {
+      background: #21262d;
+      border: 0.5px solid #30363d;
+      border-radius: 20px;
+      color: #8b949e;
+      font-size: 11px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-family: inherit;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .silence-btn {
+      display: none;
+      background: rgba(247,129,102,0.12);
+      border: 0.5px solid #f78166;
+      border-radius: 20px;
+      color: #f78166;
+      font-size: 11px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-family: inherit;
+      min-height: 44px;
+      align-items: center;
+      gap: 5px;
+    }
+    .adhan-wave { display: none; font-size: 11px; color: #f0b429; align-items: center; gap: 4px; }
+
+    /* ── Weather ── */
+    .wtop { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; flex-shrink: 0; }
+    .wtemp-big { font-size: 36px; font-weight: 500; line-height: 1; }
+    .wunit { font-size: 14px; color: #8b949e; }
+    .wdesc { font-size: 10px; color: #8b949e; margin-top: 3px; }
+    .hgrid { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 0.5px solid #21262d; padding-top: 8px; }
+    .hcol { text-align: center; }
+    .htime { font-size: 11px; color: #8b949e; margin-bottom: 4px; }
+    .htemp { font-size: 15px; font-weight: 500; color: #e6edf3; margin: 3px 0; }
+    .hmeta { font-size: 11px; color: #8b949e; line-height: 1.6; }
+    .rain-hi { color: #58a6ff; }
+
+    /* ── Calendar card ── */
+    .cal-card { grid-column: 1 / 4; }
+    .cal-inner { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; }
+    .sec-title { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }
+    .t-today { color: #3fb950; }
+    .t-up { color: #8b949e; }
+    .today-evts { display: flex; gap: 8px; overflow: hidden; }
+    .today-evt {
+      border-radius: 8px;
+      padding: 7px 10px;
+      border: 0.5px solid #30363d;
+      background: #1c2128;
+      flex: 1;
+      min-width: 0;
+    }
+    .today-evt.current { border-color: #58a6ff; background: #1a2535; }
+    .today-evt.past { opacity: 0.38; }
+    .evt-time { font-size: 11px; color: #8b949e; margin-bottom: 3px; display: flex; align-items: center; gap: 5px; }
+    .evt-title { font-size: 13px; color: #e6edf3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .now-badge { background: #58a6ff; color: #0d1117; font-size: 9px; font-weight: 700; border-radius: 3px; padding: 2px 5px; }
+    .upco { display: flex; align-items: flex-start; gap: 6px; padding: 5px 0; border-bottom: 0.5px solid #21262d; }
+    .upco:last-of-type { border-bottom: none; }
+    .udot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+    .umeta { font-size: 11px; color: #8b949e; }
+    .utitle { font-size: 13px; color: #c9d1d9; }
+
+    /* ── Settings panel ── */
+    .s-backdrop { display: none; position: absolute; top:0;left:0;width:100%;height:100%; background: rgba(0,0,0,0.55); z-index: 8; }
+    .s-panel { position: absolute; top:0; right:-310px; width:290px; height:100%; background:#161b22; border-left:0.5px solid #30363d; z-index:9; transition:right 0.25s ease; overflow-y:auto; padding:16px; }
+    .s-panel.open { right:0; }
+    .s-hdr { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+    .s-ttl { font-size:13px; font-weight:500; color:#e6edf3; }
+    .s-sec { margin-bottom:14px; }
+    .s-lbl { font-size:9px; letter-spacing:0.08em; text-transform:uppercase; color:#8b949e; margin-bottom:6px; }
+    .s-inp { width:100%; background:#0d1117; border:0.5px solid #30363d; border-radius:6px; color:#e6edf3; font-size:11px; padding:6px 8px; font-family:inherit; outline:none; }
+    .s-inp:focus { border-color:#58a6ff; }
+    .s-hint { font-size:9px; color:#8b949e; margin-top:4px; }
+    .s-tgg { display:flex; gap:5px; }
+    .s-opt { flex:1; background:#0d1117; border:0.5px solid #30363d; border-radius:6px; color:#8b949e; font-size:10px; padding:5px 0; cursor:pointer; font-family:inherit; text-align:center; }
+    .s-opt.on { background:rgba(88,166,255,0.1); border-color:#58a6ff; color:#58a6ff; }
+    .s-div { border:none; border-top:0.5px solid #21262d; margin:12px 0; }
+    .api-row { display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:0.5px solid #21262d; }
+    .api-row:last-child { border-bottom:none; }
+    .api-n { font-size:11px; color:#c9d1d9; flex:1; }
+    .api-d { font-size:9px; color:#8b949e; }
+    .free-tag { background:rgba(63,185,80,0.1); border:0.5px solid rgba(63,185,80,0.3); border-radius:4px; padding:2px 6px; font-size:8px; color:#3fb950; flex-shrink:0; }
+    .s-save-btn { width:100%; background:rgba(88,166,255,0.12); border:0.5px solid #58a6ff; border-radius:6px; color:#58a6ff; font-size:11px; padding:7px 0; cursor:pointer; font-family:inherit; margin-top:4px; }
+    .s-save-btn:hover { background:rgba(88,166,255,0.2); }
+
+    /* ── Night mode ── */
+    .dim-block { display:none; position:absolute; top:0;left:0;width:100%;height:100%; background:#010307; z-index:20; align-items:center; justify-content:center; flex-direction:column; gap:8px; cursor:pointer; }
+    .dim-time { font-size:96px; font-weight:500; color:#1e2e1c; letter-spacing:-4px; line-height:1; }
+    .dim-lbl { font-size:12px; color:#141e13; }
+
+    /* ── Sound unlock overlay ── */
+    .sound-overlay { display:none; position:absolute; top:0;left:0;width:100%;height:100%; background:rgba(13,17,23,0.92); z-index:30; align-items:center; justify-content:center; flex-direction:column; gap:12px; cursor:pointer; }
+    .sound-overlay.visible { display:flex; }
+    .sound-icon { font-size:48px; color:#3fb950; }
+    .sound-ttl { font-size:18px; color:#e6edf3; font-weight:500; }
+    .sound-sub { font-size:12px; color:#8b949e; }
+
+    /* ── Calendar overlay (modal) ── */
+    .cal-overlay { display:none; position:absolute; top:0;left:0;width:100%;height:100%; background:rgba(0,0,0,0.72); z-index:16; align-items:center; justify-content:center; }
+    .cal-modal { background:#161b22; border:0.5px solid #30363d; border-radius:12px; width:88%; height:82%; display:flex; overflow:hidden; position:relative; }
+    .cal-left { flex:0 0 55%; border-right:0.5px solid #21262d; padding:16px 18px; display:flex; flex-direction:column; }
+    .cal-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-shrink:0; }
+    .cal-nav-btn { background:none; border:0.5px solid #30363d; border-radius:6px; color:#8b949e; width:44px; height:44px; cursor:pointer; font-size:18px; font-family:inherit; display:flex; align-items:center; justify-content:center; }
+    .cal-nav-btn:hover { color:#e6edf3; border-color:#58a6ff; }
+    .cal-nav-title { font-size:15px; font-weight:500; color:#e6edf3; }
+    .cal-table { width:100%; border-collapse:collapse; flex:1; }
+    .cal-table th { font-size:10px; color:#8b949e; text-align:center; padding:4px 0; font-weight:400; }
+    .cal-table th.wknd { color:#f78166; }
+    .cal-table td { text-align:center; padding:2px; }
+    .cal-right { flex:1; padding:16px 18px; overflow-y:auto; }
+    .cal-close { position:absolute; top:10px; right:12px; background:none; border:0.5px solid #30363d; border-radius:5px; color:#8b949e; padding:10px 14px; font-size:11px; cursor:pointer; font-family:inherit; min-height:44px; display:flex; align-items:center; gap:4px; }
+    .cal-close:hover { color:#e6edf3; }
+
+    /* ── Loading / error states ── */
+    .loading-text { font-size:13px; color:#6e7681; font-style:italic; }
+    .error-text { font-size:13px; color:#f78166; font-style:italic; }
+  </style>
+</head>
+<body>
+<div class="db" id="db">
+
+  <!-- Top bar -->
+  <div class="top-bar">
+    <button class="top-btn" id="night-btn" onclick="toggleNightManual()">
+      <i class="ti ti-moon"></i> Night mode
+    </button>
+    <button class="top-btn" onclick="openSettings()">
+      <i class="ti ti-settings"></i> Settings
+    </button>
+  </div>
+
+  <div class="db-grid">
+
+    <!-- CLOCK -->
+    <div class="card">
+      <div class="clabel">
+        Helsinki
+        <button class="ibtn" id="ctog" onclick="toggleClock()">
+          <i class="ti ti-clock"></i> Analog
+        </button>
+      </div>
+      <div id="clock-digital">
+        <div class="time-big" id="dtime">--:--</div>
+        <div class="date-str" id="ddate">—</div>
+      </div>
+      <div id="clock-analog">
+        <!-- viewBox stays 120×120 so all coordinate math is unchanged;
+             width/height scale the render up to 190px for children's readability -->
+        <svg width="190" height="190" viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="56" fill="#0d1117" stroke="#30363d" stroke-width="1.5"/>
+          <g id="hmarks"></g>
+          <g id="hnums"></g>
+          <!-- Hour hand: thick for child readability -->
+          <line id="hhand" x1="60" y1="60" x2="60" y2="36" stroke="#e6edf3" stroke-width="6" stroke-linecap="round"/>
+          <!-- Minute hand: thinner, blue -->
+          <line id="mhand" x1="60" y1="60" x2="60" y2="22" stroke="#58a6ff" stroke-width="3" stroke-linecap="round"/>
+          <!-- Second hand: thin red -->
+          <line id="shand" x1="60" y1="66" x2="60" y2="16" stroke="#f78166" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="60" cy="60" r="4" fill="#e6edf3"/>
+        </svg>
+        <div class="ampm-lbl" id="ampm-lbl">AM</div>
+        <div class="date-str" id="adate" style="text-align:center;margin-top:2px">—</div>
+      </div>
+    </div>
+
+    <!-- PRAYER TIMES -->
+    <div class="card">
+      <div class="clabel">Prayer times</div>
+      <div class="next-prayer-block" id="next-prayer-block">
+        <div class="np-label">Next prayer</div>
+        <div style="display:flex;align-items:baseline;gap:9px">
+          <span class="np-name" id="np-name">—</span>
+          <span class="np-time" id="np-time">--:--</span>
+        </div>
+        <div class="np-cd" id="np-cd"><i class="ti ti-clock" style="font-size:10px;vertical-align:-1px"></i> Loading…</div>
+      </div>
+      <div class="prayer-list" id="prayer-list">
+        <div class="loading-text" style="padding:8px 0">Loading prayer times…</div>
+      </div>
+      <div class="adhan-row">
+        <button class="tog-on" id="adhan-btn" onclick="toggleAdhan()">
+          <i class="ti ti-volume"></i> Adhan on
+        </button>
+        <div class="adhan-wave" id="adhan-wave">
+          <i class="ti ti-music"></i> Playing…
+        </div>
+        <button class="silence-btn" id="silence-btn" onclick="silenceAdhan()">
+          <i class="ti ti-volume-off"></i> Silence
+        </button>
+        <button class="ibtn" onclick="demoAdhan()" style="font-size:9px">
+          <i class="ti ti-player-play"></i> Demo
+        </button>
+      </div>
+    </div>
+
+    <!-- WEATHER -->
+    <div class="card">
+      <div class="clabel">Helsinki weather</div>
+      <div id="weather-content">
+        <div class="loading-text">Loading weather…</div>
+      </div>
+    </div>
+
+    <!-- CALENDAR -->
+    <div class="card cal-card">
+      <div class="clabel">
+        Calendar
+        <button class="ibtn" onclick="openCalendar()" style="font-size:9px">
+          <i class="ti ti-calendar"></i> See all ↗
+        </button>
+      </div>
+      <div class="cal-inner">
+        <div>
+          <div class="sec-title t-today" id="today-label">Today</div>
+          <div class="today-evts" id="today-evts">
+            <div class="loading-text">Loading calendar…</div>
+          </div>
+        </div>
+        <div>
+          <div class="sec-title t-up">Upcoming</div>
+          <div id="upcoming-list">
+            <div class="loading-text">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /db-grid -->
+
+  <!-- Settings backdrop + panel -->
+  <div class="s-backdrop" id="s-bd" onclick="closeSettings()"></div>
+  <div class="s-panel" id="s-panel">
+    <div class="s-hdr">
+      <span class="s-ttl"><i class="ti ti-settings" style="vertical-align:-2px;margin-right:5px"></i>Settings</span>
+      <button class="ibtn" onclick="closeSettings()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="s-sec">
+      <div class="s-lbl">Location</div>
+      <input class="s-inp" id="s-location" type="text" value="Helsinki, Finland">
+      <div class="s-hint">Used for prayer times &amp; weather</div>
+    </div>
+    <div class="s-sec">
+      <div class="s-lbl">Clock style</div>
+      <div class="s-tgg">
+        <button class="s-opt on" id="s-dig" onclick="setClockMode('digital')">Digital</button>
+        <button class="s-opt" id="s-ana" onclick="setClockMode('analog')">Analog</button>
+      </div>
+    </div>
+    <div class="s-sec">
+      <div class="s-lbl">Prayer calculation method</div>
+      <select class="s-inp" id="s-method" style="cursor:pointer">
+        <option value="3">Muslim World League (Europe)</option>
+        <option value="2">ISNA (North America)</option>
+        <option value="5">Egyptian General Authority</option>
+        <option value="4">Umm al-Qura, Makkah</option>
+      </select>
+    </div>
+    <div class="s-sec">
+      <div class="s-lbl">Night mode (burn-in protection)</div>
+      <div class="s-tgg" style="margin-bottom:6px">
+        <button class="s-opt on" id="s-night-auto" onclick="setNightMode('auto')">Auto (after Isha)</button>
+        <button class="s-opt" id="s-night-manual" onclick="setNightMode('manual')">Manual only</button>
+      </div>
+      <div class="s-hint">Screen dims to near-black after Isha. Tap anywhere to wake.</div>
+    </div>
+    <div class="s-sec">
+      <div class="s-lbl">Calendar — iCal URL</div>
+      <input class="s-inp" id="s-ical" type="text" placeholder="https://calendar.google.com/calendar/ical/…" style="font-size:10px">
+      <div class="s-hint">Google Calendar → Share → Copy .ics link</div>
+    </div>
+    <button class="s-save-btn" onclick="saveSettings()">
+      <i class="ti ti-device-floppy" style="vertical-align:-2px;margin-right:5px"></i>Save &amp; apply
+    </button>
+    <hr class="s-div">
+    <div class="s-sec">
+      <div class="s-lbl">APIs (all free)</div>
+      <div class="api-row">
+        <div><div class="api-n">Aladhan.com</div><div class="api-d">Prayer times + Shuruq</div></div>
+        <span class="free-tag">Free · No key</span>
+      </div>
+      <div class="api-row">
+        <div><div class="api-n">Open-Meteo</div><div class="api-d">Weather &amp; hourly forecast</div></div>
+        <span class="free-tag">Free · No key</span>
+      </div>
+      <div class="api-row">
+        <div><div class="api-n">Google Calendar iCal</div><div class="api-d">Public .ics feed</div></div>
+        <span class="free-tag">Free · No login</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Night mode overlay -->
+  <div class="dim-block" id="dim-block" onclick="wakeFromNight()">
+    <div class="dim-time" id="dim-time">--:--</div>
+    <div class="dim-lbl">Night mode · tap to wake</div>
+  </div>
+
+  <!-- Sound unlock overlay -->
+  <div class="sound-overlay" id="sound-overlay" onclick="unlockAudio()">
+    <div class="sound-icon"><i class="ti ti-volume"></i></div>
+    <div class="sound-ttl">Tap to enable Adhan</div>
+    <div class="sound-sub">Required once by browser autoplay policy</div>
+  </div>
+
+  <!-- Calendar overlay -->
+  <div class="cal-overlay" id="cal-overlay">
+    <div class="cal-modal">
+      <div class="cal-left">
+        <div class="cal-nav">
+          <button class="cal-nav-btn" onclick="prevMonth()">&#8249;</button>
+          <span class="cal-nav-title" id="cal-month-title">— —</span>
+          <button class="cal-nav-btn" onclick="nextMonth()">&#8250;</button>
+        </div>
+        <table class="cal-table">
+          <thead>
+            <tr>
+              <th>Mo</th><th>Tu</th><th>We</th><th>Th</th><th>Fr</th>
+              <th class="wknd">Sa</th><th class="wknd">Su</th>
+            </tr>
+          </thead>
+          <tbody id="cal-grid-body"></tbody>
+        </table>
+      </div>
+      <div class="cal-right" id="cal-events-panel">
+        <div style="font-size:11px;color:#8b949e;padding-top:6px">Select a date to see events</div>
+      </div>
+      <button class="cal-close" onclick="closeCalendar()"><i class="ti ti-x"></i> Close</button>
+    </div>
+  </div>
+
+</div><!-- /db -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// STATE & CONSTANTS
+// ═══════════════════════════════════════════════════════════════
+const HELSINKI_LAT = 60.1699;
+const HELSINKI_LON = 24.9384;
+
+// Settings (loaded from localStorage)
+let cfg = {
+  location: 'Helsinki, Finland',
+  clockMode: 'digital',
+  prayerMethod: 3,
+  nightMode: 'auto',    // 'auto' | 'manual'
+  icalUrl: ''
+};
+
+// Runtime state
+let prayerTimes = {};       // { Fajr: '03:14', Sunrise: '04:07', ... }
+let calEvents = {};         // { 'YYYY-MM-DD': [{title, time, color, start, end}] }
+let adhanOn = true;
+let audioUnlocked = false;
+let currentAdhan = null;
+
+// Islamic Network CDN — free, no API key, CORS-enabled
+// Multiple recordings available; Makkah adhan used by default.
+// Full list: https://cdn.islamic.network/adhans/
+const ADHAN_URLS = {
+  makkah:  'https://cdn.islamic.network/adhans/adhan-makkah.mp3',
+  madinah: 'https://cdn.islamic.network/adhans/adhan-al-aqsa.mp3',
+  turkey:  'https://cdn.islamic.network/adhans/adhan-turkey.mp3',
+};
+const ADHAN_URL = ADHAN_URLS.makkah;
+let adhanTimeouts = [];
+let nightActive = false;
+let nightAutoScheduled = false;
+let calYear, calMonth, calSelDate;
+let currentDateStr = '';   // 'YYYY-MM-DD', checked each minute for day change
+
+const EVENT_COLORS = ['#58a6ff','#f78166','#3fb950','#f0b429','#b388ff','#79c0ff'];
+
+// ═══════════════════════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════════════════════
+function loadSettings() {
+  cfg.location    = localStorage.getItem('hd_location')      || 'Helsinki, Finland';
+  cfg.clockMode   = localStorage.getItem('hd_clock_mode')    || 'digital';
+  cfg.prayerMethod= parseInt(localStorage.getItem('hd_prayer_method') || '3');
+  cfg.nightMode   = localStorage.getItem('hd_night_mode')    || 'auto';
+  cfg.icalUrl     = localStorage.getItem('hd_ical_url')      || '';
+}
+
+function applySettingsUI() {
+  document.getElementById('s-location').value = cfg.location;
+  document.getElementById('s-method').value   = String(cfg.prayerMethod);
+  document.getElementById('s-ical').value      = cfg.icalUrl;
+  setClockModeUI(cfg.clockMode);
+  setNightModeUI(cfg.nightMode);
+}
+
+function saveSettings() {
+  cfg.location     = document.getElementById('s-location').value.trim() || 'Helsinki, Finland';
+  cfg.prayerMethod = parseInt(document.getElementById('s-method').value);
+  cfg.icalUrl      = document.getElementById('s-ical').value.trim();
+  localStorage.setItem('hd_location',      cfg.location);
+  localStorage.setItem('hd_clock_mode',    cfg.clockMode);
+  localStorage.setItem('hd_prayer_method', cfg.prayerMethod);
+  localStorage.setItem('hd_night_mode',    cfg.nightMode);
+  localStorage.setItem('hd_ical_url',      cfg.icalUrl);
+  closeSettings();
+  // Re-fetch with new settings
+  fetchPrayerTimes();
+  fetchWeather();
+  fetchCalendar();
+}
+
+function openSettings()  { document.getElementById('s-panel').classList.add('open'); document.getElementById('s-bd').style.display = 'block'; }
+function closeSettings() { document.getElementById('s-panel').classList.remove('open'); document.getElementById('s-bd').style.display = 'none'; }
+
+// ═══════════════════════════════════════════════════════════════
+// CLOCK
+// ═══════════════════════════════════════════════════════════════
+const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function hc(deg, r) {
+  const rad = deg * Math.PI / 180;
+  return { x: 60 + r * Math.sin(rad), y: 60 - r * Math.cos(rad) };
+}
+
+function drawMarkers() {
+  const mg = document.getElementById('hmarks'), ng = document.getElementById('hnums');
+  const lbl = ['12','1','2','3','4','5','6','7','8','9','10','11'];
+  for (let i = 0; i < 60; i++) {
+    const isH = i % 5 === 0, a = i * 6, p1 = hc(a, isH ? 46 : 51), p2 = hc(a, 54);
+    const l = document.createElementNS('http://www.w3.org/2000/svg','line');
+    l.setAttribute('x1',p1.x); l.setAttribute('y1',p1.y);
+    l.setAttribute('x2',p2.x); l.setAttribute('y2',p2.y);
+    l.setAttribute('stroke', isH ? '#484f58' : '#2d333b');
+    l.setAttribute('stroke-width', isH ? '1.5' : '0.8');
+    mg.appendChild(l);
+  }
+  for (let i = 0; i < 12; i++) {
+    const p = hc(i * 30, 38);
+    const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',p.x); t.setAttribute('y',p.y);
+    t.setAttribute('text-anchor','middle'); t.setAttribute('dominant-baseline','central');
+    t.setAttribute('font-size','12'); t.setAttribute('fill','#8b949e');
+    t.setAttribute('font-family','system-ui');
+    t.textContent = lbl[i]; ng.appendChild(t);
+  }
+}
+
+function updateClock() {
+  const now = new Date();
+  const H = now.getHours(), M = now.getMinutes(), S = now.getSeconds();
+  const ds = DAYS[now.getDay()] + ', ' + now.getDate() + ' ' + MONTHS[now.getMonth()] + ' ' + now.getFullYear();
+  const ts = pad(H) + ':' + pad(M);
+  const el_dt   = document.getElementById('dtime');
+  const el_dd   = document.getElementById('ddate');
+  const el_ad   = document.getElementById('adate');
+  const el_dim  = document.getElementById('dim-time');
+  const el_ampm = document.getElementById('ampm-lbl');
+  if (el_dt)   el_dt.textContent   = ts;
+  if (el_dd)   el_dd.textContent   = ds;
+  if (el_ad)   el_ad.textContent   = ds;
+  if (el_dim)  el_dim.textContent  = ts;
+  if (el_ampm) el_ampm.textContent = H < 12 ? 'AM' : 'PM';
+
+  // Analog hands
+  const hA = ((H%12)+M/60)*30, mA = (M+S/60)*6, sA = S*6;
+  const hh = document.getElementById('hhand'), mh = document.getElementById('mhand'), sh = document.getElementById('shand');
+  if (hh) { const p = hc(hA,22); hh.setAttribute('x2',p.x); hh.setAttribute('y2',p.y); }
+  if (mh) { const p = hc(mA,34); mh.setAttribute('x2',p.x); mh.setAttribute('y2',p.y); }
+  if (sh) { const p = hc(sA,40); sh.setAttribute('x2',p.x); sh.setAttribute('y2',p.y); const pb = hc(sA+180,8); sh.setAttribute('x1',pb.x); sh.setAttribute('y1',pb.y); }
+
+  // Check day change
+  const newDate = toDateStr(now);
+  if (currentDateStr && newDate !== currentDateStr) {
+    currentDateStr = newDate;
+    onDayChange();
+  }
+  if (!currentDateStr) currentDateStr = newDate;
+
+  // Prayer countdown (update every tick)
+  updateNextPrayerCountdown();
+}
+
+function setClockModeUI(m) {
+  cfg.clockMode = m;
+  document.getElementById('clock-digital').style.display = m === 'digital' ? 'block' : 'none';
+  document.getElementById('clock-analog').style.display  = m === 'analog'  ? 'flex'  : 'none';
+  document.getElementById('ctog').innerHTML = m === 'digital'
+    ? '<i class="ti ti-clock"></i> Analog'
+    : '<i class="ti ti-123"></i> Digital';
+  document.getElementById('s-dig').className = m === 'digital' ? 's-opt on' : 's-opt';
+  document.getElementById('s-ana').className = m === 'analog'  ? 's-opt on' : 's-opt';
+}
+function setClockMode(m) { setClockModeUI(m); localStorage.setItem('hd_clock_mode', m); }
+function toggleClock() { setClockMode(cfg.clockMode === 'digital' ? 'analog' : 'digital'); }
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
+function pad(n) { return String(n).padStart(2,'0'); }
+
+function toDateStr(d) {
+  return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+}
+
+function parseHHMM(str) {
+  // Returns a Date object for today at HH:MM. Handles midnight cross (Isha in summer).
+  if (!str) return null;
+  const parts = str.split(':');
+  const h = parseInt(parts[0]), m = parseInt(parts[1]);
+  const d = new Date();
+  d.setHours(h, m, 0, 0);
+  return d;
+}
+
+function msDiff(target) {
+  // ms until target Date; if negative (already passed), add 24h
+  const diff = target - new Date();
+  return diff < 0 ? diff + 86400000 : diff;
+}
+
+function fmtCountdown(ms) {
+  if (ms < 0) ms = 0;
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `in ${h}h ${m}m`;
+  if (m > 0) return `in ${m}m ${s}s`;
+  return `in ${s}s`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PRAYER TIMES
+// ═══════════════════════════════════════════════════════════════
+const PRAYER_DISPLAY = [
+  { key: 'Fajr',    label: 'Fajr',             shuruq: false },
+  { key: 'Sunrise', label: 'Shuruq (sunrise)',  shuruq: true  },
+  { key: 'Dhuhr',   label: 'Dhuhr',             shuruq: false },
+  { key: 'Asr',     label: 'Asr',               shuruq: false },
+  { key: 'Maghrib', label: 'Maghrib',            shuruq: false },
+  { key: 'Isha',    label: 'Isha',               shuruq: false },
+];
+
+async function fetchPrayerTimes() {
+  const now = new Date();
+  const dd = pad(now.getDate()), mm = pad(now.getMonth()+1), yyyy = now.getFullYear();
+  const url = `https://api.aladhan.com/v1/timings/${dd}-${mm}-${yyyy}?latitude=${HELSINKI_LAT}&longitude=${HELSINKI_LON}&method=${cfg.prayerMethod}`;
+  try {
+    const res = await fetch(url);
+    const json = await res.json();
+    prayerTimes = json.data.timings;
+    renderPrayerTimes();
+    scheduleAdhans();
+    scheduleNightMode();
+  } catch(e) {
+    console.error('Prayer times fetch failed', e);
+    document.getElementById('prayer-list').innerHTML =
+      '<div class="error-text" style="padding:8px 0"><i class="ti ti-wifi-off"></i> Unavailable</div>';
+  }
+}
+
+function getPrayerDate(timeStr) {
+  // Parse HH:MM into today's Date. For times like "00:52" (Isha past midnight in summer),
+  // if it seems earlier in day than current time by a lot, treat as tomorrow.
+  return parseHHMM(timeStr);
+}
+
+function getNextPrayer() {
+  const now = new Date();
+  const nowMs = now.getTime();
+  // Build sorted list of {label, key, timeMs} excluding Shuruq
+  const candidates = PRAYER_DISPLAY
+    .filter(p => !p.shuruq && prayerTimes[p.key])
+    .map(p => {
+      let d = parseHHMM(prayerTimes[p.key]);
+      // If this time has already passed today, project to tomorrow
+      if (d.getTime() < nowMs) d = new Date(d.getTime() + 86400000);
+      return { label: p.label, key: p.key, timeMs: d.getTime(), timeStr: prayerTimes[p.key] };
+    });
+  candidates.sort((a,b) => a.timeMs - b.timeMs);
+  return candidates[0] || null;
+}
+
+function updateNextPrayerCountdown() {
+  if (!Object.keys(prayerTimes).length) return;
+  const next = getNextPrayer();
+  if (!next) return;
+  const ms = next.timeMs - Date.now();
+  document.getElementById('np-cd').innerHTML =
+    `<i class="ti ti-clock" style="font-size:10px;vertical-align:-1px"></i> ${fmtCountdown(ms)}`;
+}
+
+function renderPrayerTimes() {
+  const now = new Date();
+  const nowMs = now.getTime();
+  const next = getNextPrayer();
+
+  document.getElementById('np-name').textContent = next ? next.label : '—';
+  document.getElementById('np-time').textContent = next ? next.timeStr : '--:--';
+
+  const listEl = document.getElementById('prayer-list');
+  listEl.innerHTML = '';
+  PRAYER_DISPLAY.forEach(p => {
+    const t = prayerTimes[p.key];
+    if (!t) return;
+    const row = document.createElement('div');
+    row.className = 'prayer-row' + (p.shuruq ? ' p-shuruq' : '');
+    const isNext = next && next.key === p.key && !p.shuruq;
+    if (isNext) row.classList.add('p-next');
+    row.innerHTML = `<span class="pn">${p.label}</span><span class="pt">${t}</span>`;
+    listEl.appendChild(row);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ADHAN
+// ═══════════════════════════════════════════════════════════════
+function unlockAudio() {
+  // Play a silent buffer to satisfy autoplay policy
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const buf = ctx.createBuffer(1,1,22050);
+  const src = ctx.createBufferSource();
+  src.buffer = buf; src.connect(ctx.destination); src.start(0);
+  ctx.close();
+  audioUnlocked = true;
+  document.getElementById('sound-overlay').classList.remove('visible');
+}
+
+function toggleAdhan() {
+  adhanOn = !adhanOn;
+  const b = document.getElementById('adhan-btn');
+  b.className = adhanOn ? 'tog-on' : 'tog-off';
+  b.innerHTML = adhanOn
+    ? '<i class="ti ti-volume"></i> Adhan on'
+    : '<i class="ti ti-volume-off"></i> Adhan off';
+  if (!adhanOn) silenceAdhan();
+}
+
+function playAdhan() {
+  if (!adhanOn || !audioUnlocked) return;
+  silenceAdhan();
+  currentAdhan = new Audio(ADHAN_URL);
+  currentAdhan.play().catch(e => console.log('Adhan play failed', e));
+  document.getElementById('adhan-wave').style.display = 'flex';
+  document.getElementById('silence-btn').style.display = 'inline-block';
+  currentAdhan.addEventListener('ended', silenceAdhan);
+}
+
+function silenceAdhan() {
+  if (currentAdhan) { currentAdhan.pause(); currentAdhan.currentTime = 0; currentAdhan = null; }
+  document.getElementById('adhan-wave').style.display = 'none';
+  document.getElementById('silence-btn').style.display = 'none';
+}
+
+function demoAdhan() {
+  if (!audioUnlocked) { document.getElementById('sound-overlay').classList.add('visible'); return; }
+  playAdhan();
+  if (currentAdhan) setTimeout(silenceAdhan, 5000);
+}
+
+function scheduleAdhans() {
+  // Clear existing timeouts
+  adhanTimeouts.forEach(t => clearTimeout(t));
+  adhanTimeouts = [];
+  const now = Date.now();
+  PRAYER_DISPLAY.filter(p => !p.shuruq && prayerTimes[p.key]).forEach(p => {
+    let d = parseHHMM(prayerTimes[p.key]);
+    // If already passed today, skip (will be rescheduled tomorrow via onDayChange)
+    let ms = d.getTime() - now;
+    if (ms < 0) ms += 86400000; // project to tomorrow
+    if (ms < 86400000) { // only schedule within next 24h
+      const id = setTimeout(playAdhan, ms);
+      adhanTimeouts.push(id);
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WEATHER
+// ═══════════════════════════════════════════════════════════════
+const WMO_ICONS = {
+  0:  { icon: 'ti-sun',        color: '#f0b429', desc: 'Clear sky' },
+  1:  { icon: 'ti-cloud-sun',  color: '#f0b429', desc: 'Mainly clear' },
+  2:  { icon: 'ti-cloud-sun',  color: '#f0b429', desc: 'Partly cloudy' },
+  3:  { icon: 'ti-cloud',      color: '#8b949e', desc: 'Overcast' },
+  45: { icon: 'ti-cloud-fog',  color: '#8b949e', desc: 'Fog' },
+  48: { icon: 'ti-cloud-fog',  color: '#8b949e', desc: 'Icing fog' },
+  51: { icon: 'ti-cloud-rain', color: '#58a6ff', desc: 'Light drizzle' },
+  53: { icon: 'ti-cloud-rain', color: '#58a6ff', desc: 'Drizzle' },
+  55: { icon: 'ti-cloud-rain', color: '#58a6ff', desc: 'Heavy drizzle' },
+  61: { icon: 'ti-cloud-rain', color: '#58a6ff', desc: 'Slight rain' },
+  63: { icon: 'ti-cloud-rain', color: '#58a6ff', desc: 'Rain' },
+  65: { icon: 'ti-cloud-rain', color: '#58a6ff', desc: 'Heavy rain' },
+  66: { icon: 'ti-cloud-rain', color: '#58a6ff', desc: 'Freezing rain' },
+  67: { icon: 'ti-cloud-rain', color: '#58a6ff', desc: 'Freezing rain' },
+  71: { icon: 'ti-snowflake',  color: '#c9d1d9', desc: 'Slight snow' },
+  73: { icon: 'ti-snowflake',  color: '#c9d1d9', desc: 'Snow' },
+  75: { icon: 'ti-snowflake',  color: '#c9d1d9', desc: 'Heavy snow' },
+  77: { icon: 'ti-snowflake',  color: '#c9d1d9', desc: 'Snow grains' },
+  80: { icon: 'ti-cloud-rain', color: '#58a6ff', desc: 'Showers' },
+  81: { icon: 'ti-cloud-rain', color: '#58a6ff', desc: 'Showers' },
+  82: { icon: 'ti-cloud-rain', color: '#58a6ff', desc: 'Heavy showers' },
+  85: { icon: 'ti-snowflake',  color: '#c9d1d9', desc: 'Snow showers' },
+  86: { icon: 'ti-snowflake',  color: '#c9d1d9', desc: 'Heavy snow showers' },
+  95: { icon: 'ti-storm',      color: '#f0b429', desc: 'Thunderstorm' },
+  96: { icon: 'ti-storm',      color: '#f0b429', desc: 'Thunderstorm' },
+  99: { icon: 'ti-storm',      color: '#f0b429', desc: 'Thunderstorm' },
+};
+
+function getWMO(code) {
+  return WMO_ICONS[code] || WMO_ICONS[Math.floor(code/10)*10] || { icon:'ti-cloud', color:'#8b949e', desc:'Unknown' };
+}
+
+async function fetchWeather() {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${HELSINKI_LAT}&longitude=${HELSINKI_LON}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,wind_speed_10m,weather_code&timezone=Europe%2FHelsinki&forecast_days=2`;
+  try {
+    const res = await fetch(url);
+    const d   = await res.json();
+    renderWeather(d);
+  } catch(e) {
+    console.error('Weather fetch failed', e);
+    document.getElementById('weather-content').innerHTML =
+      '<div class="error-text"><i class="ti ti-wifi-off"></i> Unavailable</div>';
+  }
+}
+
+function renderWeather(d) {
+  const cur  = d.current;
+  const hrly = d.hourly;
+  const wmo  = getWMO(cur.weather_code);
+  const temp = Math.round(cur.temperature_2m);
+  const feel = Math.round(cur.apparent_temperature);
+
+  // Find hourly indices for 08, 12, 16, 20
+  const SLOTS = ['T08:00','T12:00','T16:00','T20:00'];
+  const cols = SLOTS.map(suffix => {
+    const idx = hrly.time.findIndex(t => t.endsWith(suffix));
+    if (idx < 0) return null;
+    const slotWmo = getWMO(hrly.weather_code[idx]);
+    const rain = hrly.precipitation_probability[idx] || 0;
+    return {
+      time: suffix.slice(1),
+      icon: slotWmo.icon,
+      iconColor: slotWmo.color,
+      temp: Math.round(hrly.temperature_2m[idx]),
+      wind: Math.round(hrly.wind_speed_10m[idx]),
+      rain
+    };
+  });
+
+  const colsHtml = cols.map(c => c ? `
+    <div class="hcol">
+      <div class="htime">${c.time}</div>
+      <i class="ti ${c.icon}" style="font-size:18px;color:${c.iconColor}"></i>
+      <div class="htemp">${c.temp}°</div>
+      <div class="hmeta"><i class="ti ti-wind" style="font-size:10px"></i> ${c.wind}m/s</div>
+      <div class="hmeta${c.rain >= 40 ? ' rain-hi' : ''}">${c.rain}% <i class="ti ti-droplet" style="font-size:9px"></i></div>
+    </div>` : '<div class="hcol"></div>').join('');
+
+  document.getElementById('weather-content').innerHTML = `
+    <div class="wtop">
+      <i class="ti ${wmo.icon}" style="font-size:44px;color:${wmo.color}"></i>
+      <div>
+        <div style="display:flex;align-items:baseline;gap:4px">
+          <span class="wtemp-big">${temp}</span><span class="wunit">°C</span>
+        </div>
+        <div class="wdesc">${wmo.desc} · Feels ${feel}°C</div>
+      </div>
+    </div>
+    <div class="hgrid">${colsHtml}</div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NIGHT MODE
+// ═══════════════════════════════════════════════════════════════
+let nightTimeouts = [];
+
+function setNightModeUI(val) {
+  cfg.nightMode = val;
+  document.getElementById('s-night-auto').className   = val === 'auto'   ? 's-opt on' : 's-opt';
+  document.getElementById('s-night-manual').className = val === 'manual' ? 's-opt on' : 's-opt';
+}
+function setNightMode(val) { setNightModeUI(val); localStorage.setItem('hd_night_mode', val); }
+
+function activateNight() {
+  nightActive = true;
+  document.getElementById('dim-block').style.display = 'flex';
+  document.getElementById('night-btn').className = 'top-btn night-active';
+  document.getElementById('night-btn').innerHTML = '<i class="ti ti-sun"></i> Wake';
+}
+
+function deactivateNight() {
+  nightActive = false;
+  document.getElementById('dim-block').style.display = 'none';
+  document.getElementById('night-btn').className = 'top-btn';
+  document.getElementById('night-btn').innerHTML = '<i class="ti ti-moon"></i> Night mode';
+}
+
+function wakeFromNight() {
+  deactivateNight();
+  // If auto mode, don't re-trigger until next Isha
+}
+
+function toggleNightManual() {
+  if (nightActive) wakeFromNight();
+  else activateNight();
+}
+
+function scheduleNightMode() {
+  nightTimeouts.forEach(t => clearTimeout(t)); nightTimeouts = [];
+  if (cfg.nightMode !== 'auto') return;
+  if (!prayerTimes.Isha || !prayerTimes.Fajr) return;
+  const now = Date.now();
+
+  const ishaDate  = parseHHMM(prayerTimes.Isha);
+  const fajrDate  = parseHHMM(prayerTimes.Fajr);
+
+  let ishaMs = ishaDate.getTime() - now;
+  if (ishaMs < 0) ishaMs += 86400000;
+
+  let fajrMs = fajrDate.getTime() - now;
+  // Fajr might be < Isha (e.g. Isha is 00:52, Fajr is 03:14 next day)
+  if (fajrMs <= ishaMs) fajrMs += 86400000;
+
+  nightTimeouts.push(setTimeout(() => { activateNight(); }, ishaMs));
+  nightTimeouts.push(setTimeout(() => { deactivateNight(); }, fajrMs));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CALENDAR
+// ═══════════════════════════════════════════════════════════════
+async function fetchCalendar() {
+  if (!cfg.icalUrl) {
+    renderCalendarCard([]);
+    return;
+  }
+  try {
+    const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(cfg.icalUrl);
+    const res = await fetch(proxyUrl);
+    const text = await res.text();
+    parseIcal(text);
+  } catch(e) {
+    console.error('Calendar fetch failed', e);
+    renderCalendarCard([]);
+  }
+}
+
+function parseIcal(text) {
+  calEvents = {};
+  try {
+    const jcal = ICAL.parse(text);
+    const comp  = new ICAL.Component(jcal);
+    const vevents = comp.getAllSubcomponents('vevent');
+    vevents.forEach((vevent, idx) => {
+      const ev = new ICAL.Event(vevent);
+      const start = ev.startDate.toJSDate();
+      const end   = ev.endDate ? ev.endDate.toJSDate() : null;
+      const title = ev.summary || '(No title)';
+      const color = EVENT_COLORS[idx % EVENT_COLORS.length];
+      const allDay = !ev.startDate.isDate ? false : ev.startDate.isDate;
+
+      // Add event to each day it spans
+      let cursor = new Date(start);
+      cursor.setHours(0,0,0,0);
+      const endDay = end ? new Date(end) : new Date(start);
+      endDay.setHours(0,0,0,0);
+      // All-day events: DTEND is exclusive, back off 1 day
+      if (allDay && end) endDay.setDate(endDay.getDate() - 1);
+
+      while (cursor <= endDay) {
+        const ds = toDateStr(cursor);
+        if (!calEvents[ds]) calEvents[ds] = [];
+        calEvents[ds].push({
+          title,
+          color,
+          allDay,
+          timeStr: allDay ? 'All day' : (pad(start.getHours()) + ':' + pad(start.getMinutes())),
+          start,
+          end
+        });
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    });
+  } catch(e) {
+    console.error('iCal parse error', e);
+  }
+  renderCalendarCard(calEvents);
+}
+
+function renderCalendarCard(events) {
+  const now    = new Date();
+  const today  = toDateStr(now);
+  const dayName = DAYS[now.getDay()];
+  const dayNum  = now.getDate();
+  const monName = MONTHS_SHORT[now.getMonth()];
+
+  document.getElementById('today-label').textContent = `Today — ${dayName} ${dayNum} ${monName}`;
+
+  const todayEvts = (events[today] || []);
+  const todayEl   = document.getElementById('today-evts');
+
+  if (!cfg.icalUrl) {
+    todayEl.innerHTML = `<div style="font-size:11px;color:#484f58;font-style:italic;padding:4px 0">
+      <i class="ti ti-calendar-off" style="vertical-align:-2px;margin-right:5px"></i>
+      Add a calendar in Settings</div>`;
+    document.getElementById('upcoming-list').innerHTML =
+      '<div class="loading-text">—</div>';
+    return;
+  }
+
+  if (todayEvts.length === 0) {
+    todayEl.innerHTML = '<div style="font-size:11px;color:#484f58;font-style:italic;padding:4px 0">No events today</div>';
+  } else {
+    const nowMs = now.getTime();
+    todayEl.innerHTML = todayEvts.slice(0,4).map(ev => {
+      let cls = '';
+      if (!ev.allDay) {
+        const startMs = ev.start.getTime();
+        const endMs   = ev.end ? ev.end.getTime() : startMs + 3600000;
+        if (nowMs > endMs)   cls = ' past';
+        else if (nowMs >= startMs) cls = ' current';
+      }
+      const nowBadge = cls === ' current' ? '<span class="now-badge">NOW</span>' : '';
+      return `<div class="today-evt${cls}">
+        <div class="evt-time">${ev.timeStr} ${nowBadge}</div>
+        <div class="evt-title">${ev.title}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // Upcoming: next 5 events after today
+  const upEl = document.getElementById('upcoming-list');
+  const futureKeys = Object.keys(events)
+    .filter(ds => ds > today)
+    .sort()
+    .slice(0, 6);
+  if (futureKeys.length === 0) {
+    upEl.innerHTML = '<div class="loading-text">No upcoming events</div>';
+  } else {
+    upEl.innerHTML = futureKeys.flatMap(ds => {
+      const d = new Date(ds + 'T00:00:00');
+      const lbl = DAYS[d.getDay()].slice(0,3) + ' ' + d.getDate() + ' ' + MONTHS_SHORT[d.getMonth()];
+      return events[ds].slice(0,2).map(ev => `
+        <div class="upco">
+          <div class="udot" style="background:${ev.color}"></div>
+          <div>
+            <div class="umeta">${lbl}${ev.allDay ? '' : ' · ' + ev.timeStr}</div>
+            <div class="utitle">${ev.title}</div>
+          </div>
+        </div>`);
+    }).slice(0,5).join('');
+  }
+}
+
+// ── Calendar modal ──
+function openCalendar() {
+  const now = new Date();
+  calYear = now.getFullYear(); calMonth = now.getMonth(); calSelDate = toDateStr(now);
+  renderCalendarModal(); renderCalendarEvents(calSelDate);
+  document.getElementById('cal-overlay').style.display = 'flex';
+}
+function closeCalendar() { document.getElementById('cal-overlay').style.display = 'none'; }
+function prevMonth() { calMonth--; if (calMonth<0) { calMonth=11; calYear--; } renderCalendarModal(); }
+function nextMonth() { calMonth++; if (calMonth>11) { calMonth=0;  calYear++; } renderCalendarModal(); }
+
+function renderCalendarModal() {
+  const mNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('cal-month-title').textContent = mNames[calMonth] + ' ' + calYear;
+  const today = toDateStr(new Date());
+  const firstDow = new Date(calYear, calMonth, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+  const daysInPrev  = new Date(calYear, calMonth, 0).getDate();
+  const offset = (firstDow + 6) % 7; // Mon=0
+
+  const cells = [];
+  for (let i = offset-1; i >= 0; i--) cells.push({ d: daysInPrev-i, cur: false });
+  for (let i = 1; i <= daysInMonth; i++) cells.push({ d: i, cur: true });
+  const rem = (7 - cells.length % 7) % 7;
+  for (let i = 1; i <= rem; i++) cells.push({ d: i, cur: false });
+
+  const tbody = document.getElementById('cal-grid-body');
+  tbody.innerHTML = '';
+  for (let r = 0; r < cells.length / 7; r++) {
+    const tr = document.createElement('tr');
+    for (let c = 0; c < 7; c++) {
+      const cell = cells[r*7+c];
+      const td = document.createElement('td');
+      if (cell.cur) {
+        const ds = calYear + '-' + pad(calMonth+1) + '-' + pad(cell.d);
+        const isTod = ds === today, isSel = ds === calSelDate;
+        const evts  = calEvents[ds] || [];
+        const wrap  = document.createElement('div');
+        let ws = 'display:inline-flex;flex-direction:column;align-items:center;padding:4px 6px;border-radius:8px;min-width:30px;cursor:pointer;';
+        if (isSel) ws += 'background:#58a6ff;';
+        else if (isTod) ws += 'border:0.5px solid rgba(88,166,255,0.35);background:rgba(88,166,255,0.08);';
+        wrap.style.cssText = ws;
+        const num = document.createElement('span');
+        num.textContent = cell.d;
+        num.style.cssText = 'font-size:12px;font-family:system-ui;';
+        num.style.color = isSel ? '#0d1117' : isTod ? '#58a6ff' : '#c9d1d9';
+        if (isSel) num.style.fontWeight = '600';
+        wrap.appendChild(num);
+        if (evts.length) {
+          const dots = document.createElement('div');
+          dots.style.cssText = 'display:flex;gap:2px;margin-top:3px;';
+          evts.slice(0,3).forEach(e => {
+            const dot = document.createElement('span');
+            dot.style.cssText = `width:4px;height:4px;border-radius:50%;background:${isSel?'rgba(13,17,23,0.5)':e.color};display:inline-block;`;
+            dots.appendChild(dot);
+          });
+          wrap.appendChild(dots);
+        }
+        td.appendChild(wrap);
+        td.onclick = () => { calSelDate = ds; renderCalendarModal(); renderCalendarEvents(ds); };
+      } else {
+        td.innerHTML = `<span style="font-size:12px;color:#2d333b;font-family:system-ui;">${cell.d}</span>`;
+      }
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+}
+
+function renderCalendarEvents(ds) {
+  const panel = document.getElementById('cal-events-panel');
+  if (!ds) { panel.innerHTML = '<div style="font-size:11px;color:#8b949e;padding-top:6px;">Select a date</div>'; return; }
+  const d = new Date(ds + 'T00:00:00');
+  const lbl = DAYS[d.getDay()] + ', ' + d.getDate() + ' ' + MONTHS_SHORT[d.getMonth()] + ' ' + calYear;
+  const evts = calEvents[ds] || [];
+  let html = `<div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#8b949e;margin-bottom:10px;">${lbl}</div>`;
+  if (evts.length) {
+    evts.forEach(e => {
+      html += `<div style="background:#1c2128;border:0.5px solid #30363d;border-left:3px solid ${e.color};border-radius:7px;padding:8px 12px;margin-bottom:7px;">
+        <div style="font-size:10px;color:#8b949e;margin-bottom:3px;">${e.timeStr}</div>
+        <div style="font-size:13px;color:#e6edf3;">${e.title}</div>
+      </div>`;
+    });
+  } else {
+    html += '<div style="font-size:11px;color:#8b949e;padding:4px 0;"><i class="ti ti-calendar-off" style="vertical-align:-2px;margin-right:5px"></i>No events</div>';
+  }
+  panel.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DAY CHANGE & REFRESH SCHEDULING
+// ═══════════════════════════════════════════════════════════════
+function onDayChange() {
+  fetchPrayerTimes();
+  fetchCalendar();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WAKE LOCK
+// ═══════════════════════════════════════════════════════════════
+async function requestWakeLock() {
+  try {
+    await navigator.wakeLock.request('screen');
+  } catch(e) { console.log('Wake lock unavailable', e); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  loadSettings();
+  applySettingsUI();
+  drawMarkers();
+  setClockModeUI(cfg.clockMode);
+  setNightModeUI(cfg.nightMode);
+
+  // Show sound unlock overlay
+  document.getElementById('sound-overlay').classList.add('visible');
+
+  // Start clock
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // Fetch data
+  fetchPrayerTimes();
+  fetchWeather();
+  fetchCalendar();
+
+  // Refresh weather every 30min
+  setInterval(fetchWeather, 30 * 60 * 1000);
+  // Refresh calendar every 60min
+  setInterval(fetchCalendar, 60 * 60 * 1000);
+
+  // Wake lock
+  requestWakeLock();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') requestWakeLock();
+  });
+});
+
+// Register service worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(r => console.log('[SW] Registered', r.scope))
+      .catch(e => console.log('[SW] Failed', e));
+  });
+}
+</script>
+</body>
+</html>
