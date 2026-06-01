@@ -37,7 +37,7 @@
     .db-grid {
       display: grid;
       grid-template-columns: 1fr 1.05fr 1.25fr;
-      grid-template-rows: 1fr auto;
+      grid-template-rows: 1fr 160px;
       gap: 10px;
       flex: 1;
       min-height: 0;
@@ -124,7 +124,10 @@
     .np-name { font-size: 30px; font-weight: 500; color: #3fb950; line-height: 1; }
     .np-time { font-size: 20px; color: #3fb950; opacity: 0.75; }
     .np-cd { font-size: 13px; color: #8b949e; margin-top: 4px; }
-    .prayer-list { margin-top: 8px; flex: 1; overflow: hidden; }
+    .np-cd.urgent  { color: #f0b429; }
+    .np-cd.imminent { color: #f78166; }
+    .hijri-date { font-size: 11px; color: #484f58; margin-top: 4px; }
+    .prayer-list { margin-top: 8px; flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; }
     .prayer-row {
       display: flex;
       justify-content: space-between;
@@ -297,7 +300,7 @@
     <!-- CLOCK -->
     <div class="card">
       <div class="clabel">
-        Helsinki
+        <span id="clock-city-label">Helsinki</span>
         <button class="ibtn" id="ctog" onclick="toggleClock()">
           <i class="ti ti-clock"></i> Analog
         </button>
@@ -305,6 +308,7 @@
       <div id="clock-digital">
         <div class="time-big" id="dtime">--:--</div>
         <div class="date-str" id="ddate">—</div>
+        <div class="hijri-date" id="hijri-date">—</div>
       </div>
       <div id="clock-analog">
         <!-- viewBox stays 120×120 so all coordinate math is unchanged;
@@ -350,15 +354,12 @@
         <button class="silence-btn" id="silence-btn" onclick="silenceAdhan()">
           <i class="ti ti-volume-off"></i> Silence
         </button>
-        <button class="ibtn" onclick="demoAdhan()" style="font-size:9px">
-          <i class="ti ti-player-play"></i> Demo
-        </button>
       </div>
     </div>
 
     <!-- WEATHER -->
     <div class="card">
-      <div class="clabel">Helsinki weather</div>
+      <div class="clabel"><span id="weather-city-label">Helsinki</span> weather</div>
       <div id="weather-content">
         <div class="loading-text">Loading weather…</div>
       </div>
@@ -427,9 +428,16 @@
       <div class="s-hint">Screen dims to near-black after Isha. Tap anywhere to wake.</div>
     </div>
     <div class="s-sec">
+      <div class="s-lbl">Adhan</div>
+      <button class="s-save-btn" onclick="demoAdhan()" style="background:rgba(63,185,80,0.1);border-color:#3fb950;color:#3fb950;margin-top:0">
+        <i class="ti ti-player-play" style="vertical-align:-2px;margin-right:5px"></i>Test Adhan
+      </button>
+      <div class="s-hint" style="margin-top:6px">Plays a preview. Tap the Adhan on/off button on the dashboard to toggle.</div>
+    </div>
+    <div class="s-sec">
       <div class="s-lbl">Calendar — iCal URL</div>
       <input class="s-inp" id="s-ical" type="text" placeholder="https://calendar.google.com/calendar/ical/…" style="font-size:10px">
-      <div class="s-hint">Google Calendar → Share → Copy .ics link</div>
+      <div class="s-hint">Google Calendar → Settings → [your calendar] → Integrate calendar → Secret address in iCal format</div>
     </div>
     <button class="s-save-btn" onclick="saveSettings()">
       <i class="ti ti-device-floppy" style="vertical-align:-2px;margin-right:5px"></i>Save &amp; apply
@@ -497,12 +505,12 @@
 // ═══════════════════════════════════════════════════════════════
 // STATE & CONSTANTS
 // ═══════════════════════════════════════════════════════════════
-const HELSINKI_LAT = 60.1699;
-const HELSINKI_LON = 24.9384;
-
 // Settings (loaded from localStorage)
 let cfg = {
   location: 'Helsinki, Finland',
+  lat: 60.1699,
+  lon: 24.9384,
+  cityName: 'Helsinki',
   clockMode: 'digital',
   prayerMethod: 3,
   nightMode: 'auto',    // 'auto' | 'manual'
@@ -537,11 +545,48 @@ const EVENT_COLORS = ['#58a6ff','#f78166','#3fb950','#f0b429','#b388ff','#79c0ff
 // SETTINGS
 // ═══════════════════════════════════════════════════════════════
 function loadSettings() {
-  cfg.location    = localStorage.getItem('hd_location')      || 'Helsinki, Finland';
-  cfg.clockMode   = localStorage.getItem('hd_clock_mode')    || 'digital';
-  cfg.prayerMethod= parseInt(localStorage.getItem('hd_prayer_method') || '3');
-  cfg.nightMode   = localStorage.getItem('hd_night_mode')    || 'auto';
-  cfg.icalUrl     = localStorage.getItem('hd_ical_url')      || '';
+  cfg.location     = localStorage.getItem('hd_location')      || 'Helsinki, Finland';
+  cfg.lat          = parseFloat(localStorage.getItem('hd_lat') || '60.1699');
+  cfg.lon          = parseFloat(localStorage.getItem('hd_lon') || '24.9384');
+  cfg.cityName     = localStorage.getItem('hd_city_name')     || 'Helsinki';
+  cfg.clockMode    = localStorage.getItem('hd_clock_mode')    || 'digital';
+  cfg.prayerMethod = parseInt(localStorage.getItem('hd_prayer_method') || '3');
+  cfg.nightMode    = localStorage.getItem('hd_night_mode')    || 'auto';
+  cfg.icalUrl      = localStorage.getItem('hd_ical_url')      || '';
+}
+
+// ── Geocoding via Open-Meteo (free, no key) ──
+async function geocodeCity(locationStr) {
+  // Extract city name (before first comma)
+  const city = locationStr.split(',')[0].trim();
+  const url  = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`;
+  try {
+    const res  = await fetch(url);
+    const data = await res.json();
+    if (data.results && data.results.length > 0) {
+      const r = data.results[0];
+      cfg.lat      = r.latitude;
+      cfg.lon      = r.longitude;
+      cfg.cityName = r.name;
+      localStorage.setItem('hd_lat',       r.latitude);
+      localStorage.setItem('hd_lon',       r.longitude);
+      localStorage.setItem('hd_city_name', r.name);
+      updateCityLabels();
+      return true;
+    }
+    console.warn('Geocoding: no results for', city);
+    return false;
+  } catch(e) {
+    console.error('Geocoding failed', e);
+    return false;
+  }
+}
+
+function updateCityLabels() {
+  const el1 = document.getElementById('clock-city-label');
+  const el2 = document.getElementById('weather-city-label');
+  if (el1) el1.textContent = cfg.cityName;
+  if (el2) el2.textContent = cfg.cityName;
 }
 
 function applySettingsUI() {
@@ -552,8 +597,10 @@ function applySettingsUI() {
   setNightModeUI(cfg.nightMode);
 }
 
-function saveSettings() {
-  cfg.location     = document.getElementById('s-location').value.trim() || 'Helsinki, Finland';
+async function saveSettings() {
+  const newLocation = document.getElementById('s-location').value.trim() || 'Helsinki, Finland';
+  const locationChanged = newLocation !== cfg.location;
+  cfg.location     = newLocation;
   cfg.prayerMethod = parseInt(document.getElementById('s-method').value);
   cfg.icalUrl      = document.getElementById('s-ical').value.trim();
   localStorage.setItem('hd_location',      cfg.location);
@@ -562,7 +609,10 @@ function saveSettings() {
   localStorage.setItem('hd_night_mode',    cfg.nightMode);
   localStorage.setItem('hd_ical_url',      cfg.icalUrl);
   closeSettings();
-  // Re-fetch with new settings
+  // Geocode new city if location changed, then re-fetch
+  if (locationChanged) {
+    await geocodeCity(cfg.location);
+  }
   fetchPrayerTimes();
   fetchWeather();
   fetchCalendar();
@@ -621,6 +671,15 @@ function updateClock() {
   if (el_ad)   el_ad.textContent   = ds;
   if (el_dim)  el_dim.textContent  = ts;
   if (el_ampm) el_ampm.textContent = H < 12 ? 'AM' : 'PM';
+
+  // Hijri date (once per minute is enough)
+  if (S === 0 || !document.getElementById('hijri-date').textContent || document.getElementById('hijri-date').textContent === '—') {
+    try {
+      const hijri = new Intl.DateTimeFormat('en-u-ca-islamic', { day: 'numeric', month: 'long', year: 'numeric' }).format(now);
+      const el_h = document.getElementById('hijri-date');
+      if (el_h) el_h.textContent = hijri;
+    } catch(e) { /* Intl islamic calendar not supported */ }
+  }
 
   // Analog hands
   const hA = ((H%12)+M/60)*30, mA = (M+S/60)*6, sA = S*6;
@@ -705,7 +764,7 @@ const PRAYER_DISPLAY = [
 async function fetchPrayerTimes() {
   const now = new Date();
   const dd = pad(now.getDate()), mm = pad(now.getMonth()+1), yyyy = now.getFullYear();
-  const url = `https://api.aladhan.com/v1/timings/${dd}-${mm}-${yyyy}?latitude=${HELSINKI_LAT}&longitude=${HELSINKI_LON}&method=${cfg.prayerMethod}`;
+  const url = `https://api.aladhan.com/v1/timings/${dd}-${mm}-${yyyy}?latitude=${cfg.lat}&longitude=${cfg.lon}&method=${cfg.prayerMethod}`;
   try {
     const res = await fetch(url);
     const json = await res.json();
@@ -746,9 +805,11 @@ function updateNextPrayerCountdown() {
   if (!Object.keys(prayerTimes).length) return;
   const next = getNextPrayer();
   if (!next) return;
-  const ms = next.timeMs - Date.now();
-  document.getElementById('np-cd').innerHTML =
-    `<i class="ti ti-clock" style="font-size:10px;vertical-align:-1px"></i> ${fmtCountdown(ms)}`;
+  const ms  = next.timeMs - Date.now();
+  const el  = document.getElementById('np-cd');
+  el.innerHTML = `<i class="ti ti-clock" style="font-size:10px;vertical-align:-1px"></i> ${fmtCountdown(ms)}`;
+  // Colour urgency: amber under 15min, red under 5min
+  el.className = ms < 5 * 60000 ? 'np-cd imminent' : ms < 15 * 60000 ? 'np-cd urgent' : 'np-cd';
 }
 
 function renderPrayerTimes() {
@@ -784,7 +845,15 @@ function unlockAudio() {
   src.buffer = buf; src.connect(ctx.destination); src.start(0);
   ctx.close();
   audioUnlocked = true;
+  localStorage.setItem('hd_audio_unlocked', '1');
   document.getElementById('sound-overlay').classList.remove('visible');
+}
+
+function maybShowSoundOverlay() {
+  // Only show if adhan is on AND user hasn't unlocked audio in a previous session
+  if (adhanOn && !localStorage.getItem('hd_audio_unlocked')) {
+    document.getElementById('sound-overlay').classList.add('visible');
+  }
 }
 
 function toggleAdhan() {
@@ -873,7 +942,8 @@ function getWMO(code) {
 }
 
 async function fetchWeather() {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${HELSINKI_LAT}&longitude=${HELSINKI_LON}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,wind_speed_10m,weather_code&timezone=Europe%2FHelsinki&forecast_days=2`;
+  // Use timezone=auto so Open-Meteo picks the right timezone for any city
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${cfg.lat}&longitude=${cfg.lon}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,wind_speed_10m,weather_code&timezone=auto&forecast_days=2`;
   try {
     const res = await fetch(url);
     const d   = await res.json();
@@ -892,19 +962,21 @@ function renderWeather(d) {
   const temp = Math.round(cur.temperature_2m);
   const feel = Math.round(cur.apparent_temperature);
 
-  // Find hourly indices for 08, 12, 16, 20
+  // Find hourly indices for 08, 12, 16, 20 — guard null/NaN from past slots
   const SLOTS = ['T08:00','T12:00','T16:00','T20:00'];
+  const safeVal = (v, unit='') => v != null && !isNaN(v) ? Math.round(v) + unit : '—';
+
   const cols = SLOTS.map(suffix => {
     const idx = hrly.time.findIndex(t => t.endsWith(suffix));
     if (idx < 0) return null;
     const slotWmo = getWMO(hrly.weather_code[idx]);
-    const rain = hrly.precipitation_probability[idx] || 0;
+    const rain = hrly.precipitation_probability[idx] ?? 0;
     return {
       time: suffix.slice(1),
       icon: slotWmo.icon,
       iconColor: slotWmo.color,
-      temp: Math.round(hrly.temperature_2m[idx]),
-      wind: Math.round(hrly.wind_speed_10m[idx]),
+      temp: safeVal(hrly.temperature_2m[idx], '°'),
+      wind: safeVal(hrly.wind_speed_10m[idx], 'm/s'),
       rain
     };
   });
@@ -913,8 +985,8 @@ function renderWeather(d) {
     <div class="hcol">
       <div class="htime">${c.time}</div>
       <i class="ti ${c.icon}" style="font-size:18px;color:${c.iconColor}"></i>
-      <div class="htemp">${c.temp}°</div>
-      <div class="hmeta"><i class="ti ti-wind" style="font-size:10px"></i> ${c.wind}m/s</div>
+      <div class="htemp">${c.temp}</div>
+      <div class="hmeta"><i class="ti ti-wind" style="font-size:10px"></i> ${c.wind}</div>
       <div class="hmeta${c.rain >= 40 ? ' rain-hi' : ''}">${c.rain}% <i class="ti ti-droplet" style="font-size:9px"></i></div>
     </div>` : '<div class="hcol"></div>').join('');
 
@@ -922,10 +994,11 @@ function renderWeather(d) {
     <div class="wtop">
       <i class="ti ${wmo.icon}" style="font-size:44px;color:${wmo.color}"></i>
       <div>
-        <div style="display:flex;align-items:baseline;gap:4px">
+        <div style="display:flex;align-items:baseline;gap:6px">
           <span class="wtemp-big">${temp}</span><span class="wunit">°C</span>
+          <span style="font-size:20px;color:#8b949e;font-weight:400">/ ${feel}°</span>
         </div>
-        <div class="wdesc">${wmo.desc} · Feels ${feel}°C</div>
+        <div class="wdesc">${wmo.desc} · feels like</div>
       </div>
     </div>
     <div class="hgrid">${colsHtml}</div>`;
@@ -1061,9 +1134,13 @@ function renderCalendarCard(events) {
   const todayEl   = document.getElementById('today-evts');
 
   if (!cfg.icalUrl) {
-    todayEl.innerHTML = `<div style="font-size:11px;color:#484f58;font-style:italic;padding:4px 0">
-      <i class="ti ti-calendar-off" style="vertical-align:-2px;margin-right:5px"></i>
-      Add a calendar in Settings</div>`;
+    todayEl.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px;padding:4px 0">
+      <i class="ti ti-calendar-plus" style="font-size:24px;color:#30363d"></i>
+      <span style="font-size:13px;color:#8b949e">No calendar connected</span>
+      <button onclick="openSettings()" style="background:rgba(88,166,255,0.1);border:0.5px solid #58a6ff;border-radius:6px;color:#58a6ff;font-size:12px;padding:8px 14px;cursor:pointer;font-family:inherit;width:fit-content">
+        <i class="ti ti-settings" style="vertical-align:-2px;margin-right:5px"></i>Open Settings →
+      </button>
+    </div>`;
     document.getElementById('upcoming-list').innerHTML =
       '<div class="loading-text">—</div>';
     return;
@@ -1225,12 +1302,15 @@ async function requestWakeLock() {
 document.addEventListener('DOMContentLoaded', () => {
   loadSettings();
   applySettingsUI();
+  updateCityLabels();
   drawMarkers();
   setClockModeUI(cfg.clockMode);
   setNightModeUI(cfg.nightMode);
 
-  // Show sound unlock overlay
-  document.getElementById('sound-overlay').classList.add('visible');
+  // Restore audio unlock state from previous session
+  if (localStorage.getItem('hd_audio_unlocked')) audioUnlocked = true;
+  // Show sound unlock overlay only when needed
+  maybShowSoundOverlay();
 
   // Start clock
   updateClock();
