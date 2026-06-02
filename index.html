@@ -37,7 +37,7 @@
     .db-grid {
       display: grid;
       grid-template-columns: 1fr 1.05fr 1.25fr;
-      grid-template-rows: 1fr 160px;
+      grid-template-rows: 1fr 190px;
       gap: 10px;
       flex: 1;
       min-height: 0;
@@ -110,6 +110,7 @@
     .date-str { font-size: 13px; color: #8b949e; margin-top: 5px; }
     #clock-analog { display: none; flex-direction: column; align-items: center; gap: 4px; }
     .ampm-lbl { font-size: 13px; color: #8b949e; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 2px; }
+    .hijri-date { font-size: 11px; color: #6e7681; margin-top: 4px; }
 
     /* ── Prayer times ── */
     .next-prayer-block {
@@ -119,14 +120,16 @@
       border-radius: 8px;
       padding: 9px 11px;
       flex-shrink: 0;
+      transition: background 0.4s, border-color 0.4s;
     }
+    .next-prayer-block.urgent-bg  { background: rgba(240,180,40,0.10); border-color: rgba(240,180,40,0.35); }
+    .next-prayer-block.imminent-bg { background: rgba(247,129,102,0.12); border-color: rgba(247,129,102,0.45); }
     .np-label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #3fb950; margin-bottom: 4px; opacity: 0.8; }
     .np-name { font-size: 30px; font-weight: 500; color: #3fb950; line-height: 1; }
     .np-time { font-size: 20px; color: #3fb950; opacity: 0.75; }
-    .np-cd { font-size: 13px; color: #8b949e; margin-top: 4px; }
+    .np-cd { font-size: 16px; font-weight: 500; color: #8b949e; margin-top: 5px; }
     .np-cd.urgent  { color: #f0b429; }
     .np-cd.imminent { color: #f78166; }
-    .hijri-date { font-size: 11px; color: #484f58; margin-top: 4px; }
     .prayer-list { margin-top: 8px; flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; }
     .prayer-row {
       display: flex;
@@ -195,7 +198,7 @@
     .wdesc { font-size: 10px; color: #8b949e; margin-top: 3px; }
     .hgrid { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 0.5px solid #21262d; padding-top: 8px; }
     .hcol { text-align: center; }
-    .htime { font-size: 11px; color: #8b949e; margin-bottom: 4px; }
+    .htime { font-size: 12px; color: #8b949e; margin-bottom: 4px; font-weight: 500; }
     .htemp { font-size: 15px; font-weight: 500; color: #e6edf3; margin: 3px 0; }
     .hmeta { font-size: 11px; color: #8b949e; line-height: 1.6; }
     .rain-hi { color: #58a6ff; }
@@ -250,7 +253,8 @@
     .s-save-btn:hover { background:rgba(88,166,255,0.2); }
 
     /* ── Night mode ── */
-    .dim-block { display:none; position:absolute; top:0;left:0;width:100%;height:100%; background:#010307; z-index:20; align-items:center; justify-content:center; flex-direction:column; gap:8px; cursor:pointer; }
+    .dim-block { display:none; position:absolute; top:0;left:0;width:100%;height:100%; background:#010307; z-index:20; align-items:center; justify-content:center; flex-direction:column; gap:8px; cursor:pointer; opacity:0; transition:opacity 0.8s ease; }
+    .dim-block.visible { opacity:1; }
     .dim-time { font-size:96px; font-weight:500; color:#1e2e1c; letter-spacing:-4px; line-height:1; }
     .dim-lbl { font-size:12px; color:#141e13; }
 
@@ -807,9 +811,15 @@ function updateNextPrayerCountdown() {
   if (!next) return;
   const ms  = next.timeMs - Date.now();
   const el  = document.getElementById('np-cd');
-  el.innerHTML = `<i class="ti ti-clock" style="font-size:10px;vertical-align:-1px"></i> ${fmtCountdown(ms)}`;
-  // Colour urgency: amber under 15min, red under 5min
+  const blk = document.getElementById('next-prayer-block');
+  el.innerHTML = `<i class="ti ti-clock" style="font-size:12px;vertical-align:-1px"></i> ${fmtCountdown(ms)}`;
+  // Countdown text colour
   el.className = ms < 5 * 60000 ? 'np-cd imminent' : ms < 15 * 60000 ? 'np-cd urgent' : 'np-cd';
+  // Block background urgency glow
+  if (blk) {
+    blk.classList.toggle('imminent-bg', ms < 5 * 60000);
+    blk.classList.toggle('urgent-bg',   ms >= 5 * 60000 && ms < 15 * 60000);
+  }
 }
 
 function renderPrayerTimes() {
@@ -1012,6 +1022,7 @@ function renderWeather(d) {
 
   // Pick next 4 upcoming slots whose hour is a multiple of 3 (avoids past/null data)
   const nowMs = Date.now();
+  const todayDate = new Date().getDate();
   const cols = hrly.time
     .map((t, i) => ({ t, i, dt: new Date(t) }))
     .filter(({dt}) => dt.getTime() > nowMs && dt.getHours() % 3 === 0)
@@ -1019,8 +1030,10 @@ function renderWeather(d) {
     .map(({dt, i}) => {
       const slotWmo = getWMO(hrly.weather_code[i]);
       const rain = hrly.precipitation_probability[i] ?? 0;
+      const isTomorrow = dt.getDate() !== todayDate;
       return {
         time: pad(dt.getHours()) + ':00',
+        label: isTomorrow ? 'Tomorrow' : null,
         icon: slotWmo.icon,
         iconColor: slotWmo.color,
         temp: safeVal(hrly.temperature_2m[i], '°'),
@@ -1031,6 +1044,7 @@ function renderWeather(d) {
 
   const colsHtml = cols.map(c => c ? `
     <div class="hcol">
+      ${c.label ? `<div style="font-size:9px;color:#58a6ff;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:2px">${c.label}</div>` : ''}
       <div class="htime">${c.time}</div>
       <i class="ti ${c.icon}" style="font-size:18px;color:${c.iconColor}"></i>
       <div class="htemp">${c.temp}</div>
@@ -1066,14 +1080,18 @@ function setNightMode(val) { setNightModeUI(val); localStorage.setItem('hd_night
 
 function activateNight() {
   nightActive = true;
-  document.getElementById('dim-block').style.display = 'flex';
+  const el = document.getElementById('dim-block');
+  el.style.display = 'flex';
+  requestAnimationFrame(() => el.classList.add('visible'));
   document.getElementById('night-btn').className = 'top-btn night-active';
   document.getElementById('night-btn').innerHTML = '<i class="ti ti-sun"></i> Wake';
 }
 
 function deactivateNight() {
   nightActive = false;
-  document.getElementById('dim-block').style.display = 'none';
+  const el = document.getElementById('dim-block');
+  el.classList.remove('visible');
+  setTimeout(() => { el.style.display = 'none'; }, 800);
   document.getElementById('night-btn').className = 'top-btn';
   document.getElementById('night-btn').innerHTML = '<i class="ti ti-moon"></i> Night mode';
 }
