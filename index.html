@@ -6,153 +6,358 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#0d1117">
+  <meta name="theme-color" content="var(--bg-deep)">
   <title>Home Dashboard</title>
   <link rel="manifest" href="./manifest.json">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/ical.js/build/ical.min.js"></script>
+  <!-- Versions pinned deliberately. @latest meant an upstream release could
+       rename or drop an icon and silently break the dashboard on a device
+       nobody is watching. The service worker caches both so they also survive
+       a reboot with no network. -->
+  <!-- crossorigin is required for offline: without it these are no-cors
+       requests that yield opaque responses the service worker can't verify or
+       usefully cache. With it, jsdelivr's CORS headers give real 200s. -->
+  <link rel="stylesheet" crossorigin="anonymous"
+        href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.46.0/dist/tabler-icons.min.css">
+  <!-- ical.js pinned to 1.5.0 on purpose: 2.x ships ESM only and defines no
+       window.ICAL, so it silently breaks a classic script tag. The old
+       unpinned "/build/" URL was already resolving to 1.5.0 — this just makes
+       that explicit instead of accidental. -->
+  <script crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/ical.js@1.5.0/build/ical.min.js"></script>
   <style>
+    /* ══════════════════════════════════════════════════════════════
+       PALETTES
+       Every colour in the app resolves through these roles, so adding a
+       theme means overriding this block and nothing else.
+       Dark is the default; cream is opt-in from Settings.
+       ══════════════════════════════════════════════════════════════ */
+    :root {
+      --bg: #000;          --bg-deep: #0d1117;
+      --card: #11161d;     --panel: #161b22;   --surface: #171d26;
+      --border: #21262d;   --border-2: #30363d; --rule-soft: #1b2027;
+      --press: #222b36;    --tint-blue: #1a2535;
+
+      --text: #e6edf3;     --text-2: #c9d1d9;  --text-3: #9aa4ae;
+      /* text-5 is used for finished prayers; #7d8590 measured 4.23:1, just under
+         the 4.5 needed at label size. */
+      --text-4: #8b949e;   --text-5: #8b95a1;  --text-6: #545d68;
+
+      --green: #3fb950;    --blue: #58a6ff;    --amber: #f0b429;
+      --coral: #f78166;    --red: #f85149;     --moon: #8ba3c7;
+      --amber-label: #f7c95c;
+      --amber-dim: #bd9435; --amber-faint: #5c4712;
+      --ev5: #b388ff;      --ev6: #79c0ff;
+
+      /* Night mode stays black in both themes — a cream screen at 3am defeats
+         the point, and true black is what protects the panel. */
+      --night-bg: #000;
+      --night-fg: #162215; --night-fg2: #101a10;
+      --tint-green: rgba(63,185,80,0.10);
+      --tint-blue-soft: rgba(88,166,255,0.10);
+      --tint-blue-hi: rgba(88,166,255,0.20);
+      --tint-amber: rgba(240,180,40,0.10);
+      --tint-coral: rgba(247,129,102,0.12);
+      --tint-red: rgba(248,81,73,0.10);
+      --edge-green: rgba(63,185,80,0.30);
+      --edge-blue: rgba(88,166,255,0.35);
+      --edge-amber: rgba(240,180,40,0.40);
+      --tint-press: rgba(255,255,255,0.07);
+      --fab-bg: rgba(255,255,255,0.03);
+      --scrim: rgba(0,0,0,0.72);
+      --scrim-solid: rgba(13,17,23,0.92);
+      --strike: var(--border-2);
+    }
+
+    /* Warm paper palette. Accents are darkened rather than reused, because the
+       dark theme's greens and blues fall well below 4.5:1 on a light card. */
+    body.theme-cream {
+      --bg: #ddd2bd;       --bg-deep: #efe7d7;
+      --card: #fbf6ec;     --panel: #f6efe1;   --surface: #f1e8d6;
+      --border: #ded2ba;   --border-2: #c9bb9e; --rule-soft: #eae0cd;
+      --press: #e6dbc4;    --tint-blue: #e2ebf7;
+
+      --text: #241f18;     --text-2: #3b342a;  --text-3: #5c5344;
+      --text-4: #6e6555;   --text-5: #6b6252;  --text-6: #8d8270;
+
+      --green: #146b26;    --blue: #14548f;    --amber: #8a5a00;
+      --coral: #a83a1c;    --red: #a3231b;     --moon: #4a5f80;
+      --amber-label: #6f4600;
+      --amber-dim: #6d5a28; --amber-faint: #c7b58a;
+      --ev5: #6b3fb0;      --ev6: #14548f;
+
+      --night-bg: #000;
+      --night-fg: #2a2a24; --night-fg2: #1e1e1a;
+      --tint-green: rgba(20,107,38,0.13);
+      --tint-blue-soft: rgba(20,84,143,0.11);
+      --tint-blue-hi: rgba(20,84,143,0.20);
+      --tint-amber: rgba(138,90,0,0.12);
+      --tint-coral: rgba(168,58,28,0.13);
+      --tint-red: rgba(163,35,27,0.11);
+      --edge-green: rgba(20,107,38,0.40);
+      --edge-blue: rgba(20,84,143,0.45);
+      --edge-amber: rgba(138,90,0,0.45);
+      --tint-press: rgba(0,0,0,0.07);
+      --fab-bg: rgba(0,0,0,0.04);
+      --scrim: rgba(70,58,40,0.55);
+      --scrim-solid: rgba(239,231,215,0.94);
+      --strike: var(--text-6);
+    }
+
+    /* Crisp neutral white. The surround is deliberately a light grey rather
+       than pure white, otherwise the cards have no edge to read against. */
+    body.theme-white {
+      --bg: #d5d8dd;       --bg-deep: #eef0f3;
+      --card: #ffffff;     --panel: #f7f8fa;   --surface: #f1f3f6;
+      --border: #e2e6ea;   --border-2: #c4cad2; --rule-soft: #edeff3;
+      --press: #e5e9ee;    --tint-blue: #e7f0fb;
+
+      --text: #12161a;     --text-2: #29303a;  --text-3: #47505b;
+      --text-4: #58616d;   --text-5: #5d6672;  --text-6: #868f9b;
+
+      --green: #0f7130;    --blue: #0b569f;    --amber: #855400;
+      --coral: #ab3517;    --red: #a82016;     --moon: #3d5576;
+      --amber-label: #6b4300;
+      --amber-dim: #6d5a24; --amber-faint: #cfd4da;
+      --ev5: #6733b3;      --ev6: #0b569f;
+
+      --night-bg: #000;
+      --night-fg: #262b2a; --night-fg2: #1b1f1e;
+      --tint-green: rgba(15,113,48,0.12);
+      --tint-blue-soft: rgba(11,86,159,0.10);
+      --tint-blue-hi: rgba(11,86,159,0.18);
+      --tint-amber: rgba(133,84,0,0.11);
+      --tint-coral: rgba(171,53,23,0.12);
+      --tint-red: rgba(168,32,22,0.10);
+      --edge-green: rgba(15,113,48,0.38);
+      --edge-blue: rgba(11,86,159,0.42);
+      --edge-amber: rgba(133,84,0,0.42);
+      --tint-press: rgba(0,0,0,0.06);
+      --fab-bg: rgba(0,0,0,0.04);
+      --scrim: rgba(30,38,48,0.55);
+      --scrim-solid: rgba(238,240,243,0.94);
+      --strike: var(--text-6);
+    }
+
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
       width: 100%; height: 100%;
-      background: #000;
+      background: var(--bg);
       display: flex; align-items: center; justify-content: center;
       font-family: system-ui, -apple-system, sans-serif;
       overflow: hidden;
       -webkit-tap-highlight-color: transparent;
       user-select: none;
+      /* Roboto is proportional by default, so every clock tick nudged the
+         layout sideways. Tabular figures stop the jitter. */
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: 'tnum' 1;
     }
 
     /* ── Dashboard shell ── */
     .db {
-      background: #0d1117;
+      /* Single knob every font size multiplies against (Settings → Text size).
+         The canvas is a fixed 1280×800, so larger text has to be absorbed by
+         the cards rather than by the page growing — see the overflow guards
+         further down. */
+      --ui-scale: 1;
+      background: var(--bg);                 /* true black between cards on OLED */
       width: 1280px; height: 800px;
-      padding: 14px;
-      color: #e6edf3;
+      padding: 16px;
+      color: var(--text);
       position: relative;
       overflow: hidden;
       display: flex;
       flex-direction: column;
+      /* Anti burn-in: the whole surface drifts a few px every 90s */
+      transition: transform 4s linear;
     }
     .db-grid {
       display: grid;
-      grid-template-columns: 1fr 1.05fr 1.25fr;
-      grid-template-rows: 1fr 190px;
-      gap: 10px;
+      /* Left column stacks clock / prayers / weather; the calendar is a
+         full-height rail on the right, since it's the panel that grows. */
+      grid-template-columns: 1fr 452px;
+      /* Row 2 grew when the "Prayer times" header was added — it now needs
+         room for label + time + status + bell in every column. */
+      grid-template-rows: 220px 224px 1fr;
+      gap: 12px;
       flex: 1;
       min-height: 0;
     }
 
     /* ── Cards ── */
     .card {
-      background: #161b22;
-      border: 0.5px solid #30363d;
-      border-radius: 10px;
-      padding: 11px 13px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px 22px;
       overflow: hidden;
       display: flex;
       flex-direction: column;
     }
     .clabel {
-      font-size: 11px;
-      letter-spacing: 0.08em;
-      color: #8b949e;
+      font-size: calc(15px * var(--ui-scale, 1));
+      letter-spacing: 0.14em;
+      color: var(--text-4);
       text-transform: uppercase;
-      margin-bottom: 7px;
+      font-weight: 600;
+      margin-bottom: 10px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-shrink: 0;
+      gap: 8px;
     }
     .ibtn {
       background: none;
-      border: 0.5px solid #30363d;
-      border-radius: 5px;
-      color: #8b949e;
-      padding: 10px 14px;
-      font-size: 11px;
+      border: 1px solid var(--border-2);
+      border-radius: 10px;
+      color: var(--text-4);
+      padding: 8px 14px;
+      font-size: calc(14px * var(--ui-scale, 1));
       cursor: pointer;
       font-family: inherit;
       min-height: 44px;
       display: inline-flex;
       align-items: center;
-      gap: 4px;
-    }
-    .ibtn:hover { color: #e6edf3; border-color: #58a6ff; }
-
-    /* ── Top bar ── */
-    .top-bar {
-      display: flex;
-      justify-content: flex-end;
       gap: 6px;
-      margin-bottom: 10px;
-      flex-shrink: 0;
+      white-space: nowrap;
     }
-    .top-btn {
-      background: rgba(255,255,255,0.04);
-      border: 0.5px solid #30363d;
-      border-radius: 6px;
-      color: #8b949e;
-      padding: 10px 14px;
-      font-size: 11px;
+    .ibtn:hover { color: var(--text); border-color: var(--blue); }
+
+    /* ── Floating controls (replaces the old top bar) ── */
+    /* Bottom-right, clear of the calendar rail's own header buttons. The rail
+       reserves matching bottom padding so events never sit underneath. */
+    .fab-row { position: absolute; bottom: 20px; right: 22px; display: flex; gap: 8px; z-index: 5; }
+    .fab {
+      width: 46px; height: 46px;
+      border-radius: 12px;
+      background: var(--fab-bg);
+      border: 1px solid var(--border);
+      color: var(--text-5);
+      font-size: calc(19px * var(--ui-scale, 1));
       cursor: pointer;
-      font-family: inherit;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      min-height: 44px;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0.45;
+      transition: opacity .2s, color .2s;
     }
-    .top-btn:hover { color: #e6edf3; border-color: #8b949e; }
-    .top-btn.night-active { background: rgba(240,180,40,0.1); border-color: rgba(240,180,40,0.4); color: #f0b429; }
+    .fab:hover { opacity: 1; color: var(--text); }
+    .fab.night-active { background: var(--tint-amber); border-color: var(--edge-amber); color: var(--amber); opacity: 1; }
 
     /* ── Clock ── */
-    .time-big { font-size: 56px; font-weight: 500; line-height: 1; color: #e6edf3; letter-spacing: -3px; }
-    .date-str { font-size: 13px; color: #8b949e; margin-top: 5px; }
-    #clock-analog { display: none; flex-direction: column; align-items: center; gap: 4px; }
-    .ampm-lbl { font-size: 13px; color: #8b949e; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 2px; }
-    .hijri-date { font-size: 11px; color: #6e7681; margin-top: 4px; }
+    /* The clock is already the largest thing on screen; capping its growth
+       means the XL setting buys legibility where it's actually needed (prayer
+       times, agenda) instead of pushing the date off the card. */
+    .time-big { font-size: calc(104px * min(var(--ui-scale, 1), 1.1)); font-weight: 600; line-height: 1; color: var(--text); letter-spacing: -0.02em; }
+    .date-str { font-size: calc(26px * var(--ui-scale, 1)); color: var(--text-2); margin-top: 10px; }
+    /* Stacked vertically the dial plus two text lines exceeded the card height
+       and clipped the date. Side by side, the row is only as tall as the dial. */
+    #clock-analog { display: none; flex-direction: row; align-items: center; gap: 22px; }
+    #clock-analog svg { flex: 0 0 auto; }
+    .analog-side { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+    .analog-side .date-str { margin-top: 6px; }
+    .ampm-lbl { font-size: calc(24px * var(--ui-scale, 1)); color: var(--text-3); letter-spacing: 0.1em; text-transform: uppercase; }
+    .hijri-date { font-size: calc(24px * var(--ui-scale, 1)); color: var(--text-3); margin-top: 8px; }
 
-    /* ── Prayer times ── */
-    .next-prayer-block {
-      margin-top: 9px;
-      background: rgba(63,185,80,0.08);
-      border: 0.5px solid rgba(63,185,80,0.25);
-      border-radius: 8px;
-      padding: 9px 11px;
-      flex-shrink: 0;
-      transition: background 0.4s, border-color 0.4s;
+    /* ── Prayer strip ── */
+    .prayer-card { justify-content: center; }
+    /* This card is the tightest on the board: the standard 44px header button
+       plus a 10px margin left the columns 5px short and they clipped. The month
+       button is a rarely-used secondary control, so it gets a smaller target. */
+    .prayer-card .clabel { margin-bottom: 2px; }
+    .prayer-card .clabel .ibtn { min-height: 34px; padding: 4px 10px; }
+    .prayer-list {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
     }
-    .next-prayer-block.urgent-bg  { background: rgba(240,180,40,0.10); border-color: rgba(240,180,40,0.35); }
-    .next-prayer-block.imminent-bg { background: rgba(247,129,102,0.12); border-color: rgba(247,129,102,0.45); }
-    .np-label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #3fb950; margin-bottom: 4px; opacity: 0.8; }
-    .np-name { font-size: 30px; font-weight: 500; color: #3fb950; line-height: 1; }
-    .np-time { font-size: 20px; color: #3fb950; opacity: 0.75; }
-    .np-cd { font-size: 16px; font-weight: 500; color: #8b949e; margin-top: 5px; }
-    .np-cd.urgent  { color: #f0b429; }
-    .np-cd.imminent { color: #f78166; }
-    .prayer-list { margin-top: 8px; flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; }
     .prayer-row {
       display: flex;
-      justify-content: space-between;
+      flex-direction: column;
       align-items: center;
-      padding: 5px 0;
-      border-bottom: 0.5px solid #21262d;
-      font-size: 14px;
+      justify-content: center;
+      gap: 2px;
+      border-radius: 12px;
+      border-left: 4px solid transparent;   /* shape, not just colour */
+      padding: 8px 4px;
+      position: relative;
+      overflow: hidden;
     }
-    .prayer-row:last-of-type { border-bottom: none; }
-    .pn { color: #c9d1d9; }
-    .pt { color: #8b949e; }
-    .p-next { background: rgba(63,185,80,0.07); border-radius: 5px; padding: 4px 7px; margin: 1px -7px; }
-    .p-next .pn, .p-next .pt { color: #3fb950; font-weight: 500; }
-    .p-shuruq .pn { color: #f0b429; font-size: 12px; font-style: italic; }
-    .p-shuruq .pt { color: #f0b429; font-size: 12px; }
+    /* The strip caps out at 1.12: six columns each carrying name + time +
+       countdown + toggle simply cannot grow further inside this row, and past
+       that point the countdown was clipping. XL still enlarges everything else. */
+    .prayer-list { --strip: min(var(--ui-scale, 1), 1.12); }
+    /* text-3 rather than text-4: at 17px these labels sit below the 18.66px
+       large-text threshold, so they need the full 4.5:1 and text-4 measured
+       4.2–4.3 in both themes. */
+    .pn { font-size: calc(17px * var(--strip)); letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-3); font-weight: 600; }
+    /* 40px is the largest that fits six columns in the left panel without the
+       times colliding — 46px overlapped. */
+    .pt { font-size: calc(40px * var(--strip)); color: var(--text); font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; }
+    .p-status { font-size: calc(16px * var(--strip)); font-weight: 600; color: var(--text-4); height: 22px; letter-spacing: 0.04em; white-space: nowrap; }
+    .p-status.now  { color: var(--green); letter-spacing: 0.14em; }
+    .p-status.next { color: var(--text-2); }
+    .p-status.next.urgent   { color: var(--amber); }
+    .p-status.next.imminent { color: var(--coral); }
+    .p-bell-spacer { height: 34px; }
+    /* Shown when prayer times came from cache because the service was
+       unreachable — a silent stale fallback would be worse than no fallback. */
+    .stale-badge {
+      font-size: calc(13px * var(--ui-scale, 1));
+      font-weight: 600; letter-spacing: 0.04em;
+      color: var(--amber); background: var(--tint-amber);
+      border: 1px solid var(--edge-amber); border-radius: 6px;
+      padding: 3px 8px; margin-left: auto; margin-right: 8px; text-transform: none;
+    }
+
+    /* Finished: struck through as well as dimmed, so the state survives both
+       low contrast and colour-blindness. */
+    .prayer-row.p-past .pt { color: var(--text-5); text-decoration: line-through; text-decoration-color: var(--text-6); }
+    .prayer-row.p-past .pn { color: var(--text-5); }
+
+    /* Current prayer — stays highlighted until the NEXT one begins. */
+    .p-active { background: var(--tint-green); border-left-color: var(--green); }
+    .p-active .pn { color: var(--green); }
+    .p-active .pt { color: var(--green); }
+    /* How much of the current window has elapsed. */
+    .p-prog { position: absolute; bottom: 0; left: 0; height: 4px; width: 0%;
+              background: var(--green); opacity: 0.55; transition: width 1s linear; }
+
+    /* Next up — outlined rather than filled, so it reads as distinct from NOW. */
+    .p-upcoming:first-of-type ~ .p-upcoming { }
+    .prayer-row.p-upcoming .pt { color: var(--text); }
+
+    /* Dedicated tone for the small SHURUQ caption: the display amber is fine at
+       36px but fails 4.5:1 at label size. */
+    .p-shuruq .pn { color: var(--amber-label); }
+    /* Jumu'ah gets the blue accent so a glance shows it isn't an ordinary
+       Dhuhr — the congregation time can differ from Dhuhr by an hour. */
+    .p-jumuah .pn { color: var(--blue); }
+    .p-jumuah:not(.p-active):not(.p-past) .pt { color: var(--blue); }
+    .p-shuruq .pt { color: var(--amber); font-size: calc(36px * var(--ui-scale, 1)); font-weight: 500; }
+    .p-shuruq.p-past .pt { color: var(--amber-dim); text-decoration-color: var(--amber-faint); }
+    .p-shuruq.p-past .pn { color: var(--amber-dim); }
+    /* Per-prayer adhan toggle — 44px hit target for touch. */
+    .p-bell {
+      width: 44px; height: 30px;
+      display: flex; align-items: center; justify-content: center;
+      background: none; border: none; padding: 0;
+      cursor: pointer;
+      color: var(--green);
+      font-size: calc(20px * var(--strip, 1));
+      border-radius: 8px;
+      transition: color .15s, background .15s;
+    }
+    .p-bell.off { color: var(--text-6); }
+    .p-bell:active { background: var(--tint-press); }
     .adhan-row { margin-top: 8px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; flex-shrink: 0; }
     .tog-on {
-      background: rgba(63,185,80,0.12);
-      border: 0.5px solid #3fb950;
+      background: var(--tint-green);
+      border: 0.5px solid var(--green);
       border-radius: 20px;
-      color: #3fb950;
-      font-size: 11px;
+      color: var(--green);
+      font-size: calc(11px * var(--ui-scale, 1));
       padding: 10px 14px;
       cursor: pointer;
       font-family: inherit;
@@ -162,11 +367,11 @@
       gap: 5px;
     }
     .tog-off {
-      background: #21262d;
-      border: 0.5px solid #30363d;
+      background: var(--border);
+      border: 0.5px solid var(--border-2);
       border-radius: 20px;
-      color: #8b949e;
-      font-size: 11px;
+      color: var(--text-4);
+      font-size: calc(11px * var(--ui-scale, 1));
       padding: 10px 14px;
       cursor: pointer;
       font-family: inherit;
@@ -177,11 +382,11 @@
     }
     .silence-btn {
       display: none;
-      background: rgba(247,129,102,0.12);
-      border: 0.5px solid #f78166;
+      background: var(--tint-coral);
+      border: 0.5px solid var(--coral);
       border-radius: 20px;
-      color: #f78166;
-      font-size: 11px;
+      color: var(--coral);
+      font-size: calc(11px * var(--ui-scale, 1));
       padding: 10px 14px;
       cursor: pointer;
       font-family: inherit;
@@ -189,169 +394,256 @@
       align-items: center;
       gap: 5px;
     }
-    .adhan-wave { display: none; font-size: 11px; color: #f0b429; align-items: center; gap: 4px; }
+    .adhan-wave { display: none; font-size: calc(11px * var(--ui-scale, 1)); color: var(--amber); align-items: center; gap: 4px; }
 
     /* ── Weather ── */
-    .wtop { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; flex-shrink: 0; }
-    .wtemp-big { font-size: 36px; font-weight: 500; line-height: 1; }
-    .wunit { font-size: 14px; color: #8b949e; }
-    .wdesc { font-size: 10px; color: #8b949e; margin-top: 3px; }
-    .hgrid { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 0.5px solid #21262d; padding-top: 8px; }
-    .hcol { text-align: center; }
-    .htime { font-size: 12px; color: #8b949e; margin-bottom: 4px; font-weight: 500; }
-    .htemp { font-size: 15px; font-weight: 500; color: #e6edf3; margin: 3px 0; }
-    .hmeta { font-size: 11px; color: #8b949e; line-height: 1.6; }
-    .rain-hi { color: #58a6ff; }
+    .wtop { display: flex; align-items: center; gap: 16px; margin-bottom: 10px; flex-shrink: 0; }
+    .wtemp-big { font-size: calc(68px * var(--ui-scale, 1)); font-weight: 600; line-height: 1; letter-spacing: -0.02em; }
+    .wunit { font-size: calc(24px * var(--ui-scale, 1)); color: var(--text-3); }
+    .wdesc { font-size: calc(19px * var(--ui-scale, 1)); color: var(--text-3); margin-top: 4px; }
+    /* space-evenly keeps a real gap under the bottom row instead of letting it
+       sit flush against the card edge. */
+    .hgrid {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      border-top: 1px solid var(--border);
+      padding: 10px 0 4px;
+      flex: 1; min-height: 0; overflow: hidden;
+      align-content: space-evenly;
+    }
+    .hcol { text-align: center; min-width: 0; }
+    /* Fixed-height slot so the "Tomorrow" caption doesn't shunt those two
+       columns down and break the horizontal alignment across the row. */
+    .hday { height: 16px; font-size: calc(13px * var(--ui-scale, 1)); color: var(--blue); letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; }
+    .htime { font-size: calc(18px * var(--ui-scale, 1)); color: var(--text-3); margin-bottom: 4px; font-weight: 600; }
+    .htemp { font-size: calc(28px * var(--ui-scale, 1)); font-weight: 600; color: var(--text); margin: 1px 0; }
+    .hmeta { font-size: calc(16px * var(--ui-scale, 1)); color: var(--text-3); line-height: 1.5; }
+    .rain-hi { color: var(--blue); font-weight: 600; }
 
-    /* ── Calendar card ── */
-    .cal-card { grid-column: 1 / 4; }
-    .cal-inner { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; }
-    .sec-title { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }
-    .t-today { color: #3fb950; }
-    .t-up { color: #8b949e; }
-    .today-evts { display: flex; gap: 8px; overflow: hidden; }
+    /* ── Calendar rail — spans the full height of the right column ── */
+    .agenda-rail { grid-column: 2; grid-row: 1 / -1; }
+    .cal-inner { display: flex; flex-direction: column; gap: 16px; flex: 1; min-height: 0; padding-bottom: 58px; }
+    .cal-today-sec { flex: 0 0 auto; max-height: 42%; overflow: hidden; display: flex; flex-direction: column; }
+    .cal-up-sec { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    #upcoming-list { overflow-y: auto; flex: 1; min-height: 0; }
+    #upcoming-list::-webkit-scrollbar { width: 0; }
+    .today-evts { overflow-y: auto; }
+    .today-evts::-webkit-scrollbar { width: 0; }
+    .sec-title { font-size: calc(15px * var(--ui-scale, 1)); letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 8px; font-weight: 600; }
+    .t-today { color: var(--green); }
+    .t-up { color: var(--text-4); }
+    .today-evts { display: flex; flex-direction: column; gap: 8px; }
     .today-evt {
-      border-radius: 8px;
-      padding: 7px 10px;
-      border: 0.5px solid #30363d;
-      background: #1c2128;
-      flex: 1;
+      border-radius: 10px;
+      padding: 10px 14px;
+      border: 1px solid var(--border-2);
+      border-left: 4px solid var(--border-2);
+      background: var(--surface);
       min-width: 0;
     }
-    .today-evt.current { border-color: #58a6ff; background: #1a2535; }
-    .today-evt.past { opacity: 0.38; }
-    .evt-time { font-size: 11px; color: #8b949e; margin-bottom: 3px; display: flex; align-items: center; gap: 5px; }
-    .evt-title { font-size: 13px; color: #e6edf3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .now-badge { background: #58a6ff; color: #0d1117; font-size: 9px; font-weight: 700; border-radius: 3px; padding: 2px 5px; }
-    .upco { display: flex; align-items: flex-start; gap: 6px; padding: 5px 0; border-bottom: 0.5px solid #21262d; }
+    /* Tappable rows get a visible press state — on a wall tablet there's no
+       cursor to hint that something is interactive. */
+    .evt-tap { cursor: pointer; transition: background .15s; }
+    .evt-tap:active { background: var(--press); }
+    .today-evt.current { border-color: var(--blue); border-left-color: var(--blue); background: var(--tint-blue); }
+    .today-evt.past { opacity: 0.5; }
+    .today-evt.past .evt-title { text-decoration: line-through; text-decoration-color: var(--text-6); }
+    .evt-time { font-size: calc(16px * var(--ui-scale, 1)); color: var(--text-3); margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+    .evt-title { font-size: calc(22px * var(--ui-scale, 1)); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .now-badge { background: var(--blue); color: var(--bg-deep); font-size: calc(12px * var(--ui-scale, 1)); font-weight: 700; border-radius: 4px; padding: 2px 7px; }
+    .upco { display: flex; align-items: flex-start; gap: 9px; padding: 7px 0; border-bottom: 1px solid var(--border); }
     .upco:last-of-type { border-bottom: none; }
-    .udot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
-    .umeta { font-size: 11px; color: #8b949e; }
-    .utitle { font-size: 13px; color: #c9d1d9; }
+    .udot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 7px; }
+    .umeta { font-size: calc(16px * var(--ui-scale, 1)); color: var(--text-3); }
+    .utitle { font-size: calc(22px * var(--ui-scale, 1)); color: var(--text); }
 
     /* ── Settings panel ── */
-    .s-backdrop { display: none; position: absolute; top:0;left:0;width:100%;height:100%; background: rgba(0,0,0,0.55); z-index: 8; }
-    .s-panel { position: absolute; top:0; right:-310px; width:290px; height:100%; background:#161b22; border-left:0.5px solid #30363d; z-index:9; transition:right 0.25s ease; overflow-y:auto; padding:16px; }
+    .s-backdrop { display: none; position: absolute; top:0;left:0;width:100%;height:100%; background: var(--scrim); z-index: 8; }
+    .s-panel { position: absolute; top:0; right:-310px; width:290px; height:100%; background:var(--panel); border-left:0.5px solid var(--border-2); z-index:9; transition:right 0.25s ease; overflow-y:auto; padding:16px; }
     .s-panel.open { right:0; }
     .s-hdr { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
-    .s-ttl { font-size:13px; font-weight:500; color:#e6edf3; }
+    .s-ttl { font-size: calc(13px * var(--ui-scale, 1)); font-weight:500; color:var(--text); }
     .s-sec { margin-bottom:14px; }
-    .s-lbl { font-size:9px; letter-spacing:0.08em; text-transform:uppercase; color:#8b949e; margin-bottom:6px; }
-    .s-inp { width:100%; background:#0d1117; border:0.5px solid #30363d; border-radius:6px; color:#e6edf3; font-size:11px; padding:6px 8px; font-family:inherit; outline:none; }
-    .s-inp:focus { border-color:#58a6ff; }
-    .s-hint { font-size:9px; color:#8b949e; margin-top:4px; }
+    .s-lbl { font-size: calc(9px * var(--ui-scale, 1)); letter-spacing:0.08em; text-transform:uppercase; color:var(--text-4); margin-bottom:6px; }
+    .s-inp { width:100%; background:var(--bg-deep); border:0.5px solid var(--border-2); border-radius:6px; color:var(--text); font-size: calc(11px * var(--ui-scale, 1)); padding:6px 8px; font-family:inherit; outline:none; }
+    .s-inp:focus { border-color:var(--blue); }
+    .s-hint { font-size: calc(9px * var(--ui-scale, 1)); color:var(--text-4); margin-top:4px; }
     .s-tgg { display:flex; gap:5px; }
-    .s-opt { flex:1; background:#0d1117; border:0.5px solid #30363d; border-radius:6px; color:#8b949e; font-size:10px; padding:5px 0; cursor:pointer; font-family:inherit; text-align:center; }
-    .s-opt.on { background:rgba(88,166,255,0.1); border-color:#58a6ff; color:#58a6ff; }
-    .s-div { border:none; border-top:0.5px solid #21262d; margin:12px 0; }
-    .api-row { display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:0.5px solid #21262d; }
+    .s-opt { flex:1; background:var(--bg-deep); border:0.5px solid var(--border-2); border-radius:6px; color:var(--text-4); font-size: calc(10px * var(--ui-scale, 1)); padding:5px 0; cursor:pointer; font-family:inherit; text-align:center; }
+    .s-opt.on { background:var(--tint-blue-soft); border-color:var(--blue); color:var(--blue); }
+    .s-div { border:none; border-top:0.5px solid var(--border); margin:12px 0; }
+    .api-row { display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:0.5px solid var(--border); }
     .api-row:last-child { border-bottom:none; }
-    .api-n { font-size:11px; color:#c9d1d9; flex:1; }
-    .api-d { font-size:9px; color:#8b949e; }
-    .free-tag { background:rgba(63,185,80,0.1); border:0.5px solid rgba(63,185,80,0.3); border-radius:4px; padding:2px 6px; font-size:8px; color:#3fb950; flex-shrink:0; }
-    .s-save-btn { width:100%; background:rgba(88,166,255,0.12); border:0.5px solid #58a6ff; border-radius:6px; color:#58a6ff; font-size:11px; padding:7px 0; cursor:pointer; font-family:inherit; margin-top:4px; }
-    .s-save-btn:hover { background:rgba(88,166,255,0.2); }
+    .api-n { font-size: calc(11px * var(--ui-scale, 1)); color:var(--text-2); flex:1; }
+    .api-d { font-size: calc(9px * var(--ui-scale, 1)); color:var(--text-4); }
+    .free-tag { background:var(--tint-green); border:0.5px solid var(--edge-green); border-radius:4px; padding:2px 6px; font-size: calc(8px * var(--ui-scale, 1)); color:var(--green); flex-shrink:0; }
+    .s-save-btn { width:100%; background:var(--tint-blue-soft); border:0.5px solid var(--blue); border-radius:6px; color:var(--blue); font-size: calc(11px * var(--ui-scale, 1)); padding:7px 0; cursor:pointer; font-family:inherit; margin-top:4px; }
+    .s-save-btn:hover { background:var(--tint-blue-hi); }
 
     /* ── Night mode ── */
-    .dim-block { display:none; position:absolute; top:0;left:0;width:100%;height:100%; background:#010307; z-index:20; align-items:center; justify-content:center; flex-direction:column; gap:8px; cursor:pointer; opacity:0; transition:opacity 0.8s ease; }
+    .dim-block { display:none; position:absolute; top:0;left:0;width:100%;height:100%; background:var(--night-bg); z-index:20; align-items:center; justify-content:center; flex-direction:column; gap:8px; cursor:pointer; opacity:0; transition:opacity 0.8s ease; }
     .dim-block.visible { opacity:1; }
-    .dim-time { font-size:96px; font-weight:500; color:#1e2e1c; letter-spacing:-4px; line-height:1; }
-    .dim-lbl { font-size:12px; color:#141e13; }
+    /* Night mode used to hold 96px digits on identical pixels for ~8h a night,
+       indefinitely — that burns a clock into the panel. The inner wrapper is
+       repositioned every 60s within a ±160×±120px box instead. */
+    .dim-inner { display:flex; flex-direction:column; align-items:center; gap:8px; transition: transform 6s ease-in-out; }
+    .dim-time { font-size: calc(96px * var(--ui-scale, 1)); font-weight:500; color:var(--night-fg); letter-spacing:-0.02em; line-height:1; }
+    .dim-lbl { font-size: calc(14px * var(--ui-scale, 1)); color:var(--night-fg2); }
+
+    /* ── Verification chip: three tiers of loudness ──
+       A stale check is probably just the network for the first fortnight, so it
+       stays almost invisible. Past a month it's probably actually broken and
+       becomes unmissable. Escalating prominence rather than escalating wording. */
+    .verify-chip {
+      font-size: calc(13px * var(--ui-scale, 1));
+      letter-spacing: 0.03em; text-transform: none;
+      padding: 3px 8px; border-radius: 6px; cursor: pointer;
+      margin-left: auto; margin-right: 8px; white-space: nowrap;
+    }
+    .verify-chip.soft { color: var(--text-6); background: none; border: none; font-weight: 400; }
+    .verify-chip.warn { color: var(--amber); background: var(--tint-amber);
+                        border: 1px solid var(--edge-amber); font-weight: 600; }
+    .verify-chip.bad  { color: var(--coral); background: var(--tint-coral);
+                        border: 1px solid var(--coral); font-weight: 600; }
+
+    .vd-table { width: 100%; border-collapse: collapse; }
+    .vd-table th { font-size: calc(14px * var(--ui-scale,1)); text-transform: uppercase;
+                   letter-spacing: 0.1em; color: var(--text-4); text-align: right;
+                   padding: 6px 8px; border-bottom: 1px solid var(--border-2); font-weight: 600; }
+    .vd-table th:first-child, .vd-table td:first-child { text-align: left; }
+    .vd-table td { font-size: calc(19px * var(--ui-scale,1)); color: var(--text);
+                   padding: 8px; border-bottom: 1px solid var(--rule-soft); text-align: right; }
+    .vd-table tr.vd-hot td { color: var(--coral); font-weight: 600; }
+    .vd-note { font-size: calc(15px * var(--ui-scale,1)); color: var(--text-4); margin-top: 12px; line-height: 1.5; }
+
+    /* ── Monthly prayer timetable ── */
+    .pm-overlay { display:none; position:absolute; top:0;left:0;width:100%;height:100%;
+                  background:var(--scrim); z-index:19; align-items:center; justify-content:center; }
+    .pm-modal { background:var(--card); border:1px solid var(--border-2); border-radius:16px;
+                width:94%; height:90%; display:flex; flex-direction:column; overflow:hidden; }
+    .pm-hdr { display:flex; align-items:center; gap:14px; padding:14px 18px;
+              border-bottom:1px solid var(--border); flex-shrink:0; }
+    .pm-ttl { font-size:calc(22px * var(--ui-scale,1)); font-weight:600; color:var(--text); }
+    .pm-scroll { flex:1; min-height:0; overflow-y:auto; }
+    .pm-scroll::-webkit-scrollbar { width:10px; }
+    .pm-scroll::-webkit-scrollbar-thumb { background:var(--border-2); border-radius:5px; }
+    .pm-table { width:100%; border-collapse:collapse; }
+    /* Sticky header so the column names stay visible while scrolling a month. */
+    .pm-table thead th { position:sticky; top:0; background:var(--card); z-index:2;
+      font-size:calc(15px * var(--ui-scale,1)); letter-spacing:0.1em; text-transform:uppercase;
+      color:var(--text-4); font-weight:600; padding:12px 8px; border-bottom:1px solid var(--border-2); text-align:right; }
+    .pm-table thead th:first-child { text-align:left; padding-left:18px; }
+    .pm-table td { font-size:calc(20px * var(--ui-scale,1)); color:var(--text); padding:11px 8px;
+                   border-bottom:1px solid var(--rule-soft); text-align:right; }
+    .pm-table td:first-child { text-align:left; padding-left:18px; color:var(--text-3);
+                               font-size:calc(18px * var(--ui-scale,1)); white-space:nowrap; }
+    .pm-shuruq { color:var(--amber) !important; }
+    .pm-today td { background:var(--tint-green); color:var(--green); font-weight:600; }
+    .pm-today td:first-child { color:var(--green); }
+    .pm-fri td:first-child { color:var(--blue); }
+    .pm-jumuah { color:var(--blue) !important; font-weight:600; }
+
+    /* ── New event composer ── */
+    .ev-overlay { display:none; position:absolute; top:0;left:0;width:100%;height:100%;
+                  background:var(--scrim); z-index:18; align-items:center; justify-content:center; }
+    .ev-modal { background:var(--panel); border:1px solid var(--border-2); border-radius:16px; padding:24px;
+                width:520px; display:flex; flex-direction:column; gap:12px; }
+    .ev-ttl { font-size:calc(24px * var(--ui-scale,1)); font-weight:600; color:var(--text); margin-bottom:4px; }
+    /* Touch targets — this is tapped with a finger on a wall, not a mouse. */
+    .ev-in { font-size:calc(19px * var(--ui-scale,1)); padding:12px 14px; min-height:52px; }
+    .ev-check { display:flex; align-items:center; gap:10px; font-size:calc(18px * var(--ui-scale,1));
+                color:var(--text-2); min-height:44px; cursor:pointer; }
+    .ev-check input { width:22px; height:22px; }
+    .ev-msg { font-size:calc(16px * var(--ui-scale,1)); color:var(--coral); min-height:20px; }
+    .ev-modal .s-save-btn { font-size:calc(18px * var(--ui-scale,1)); padding:14px 0; }
+    .ev-modal .s-lbl { font-size:calc(13px * var(--ui-scale,1)); }
 
     /* ── Sound unlock overlay ── */
-    .sound-overlay { display:none; position:absolute; top:0;left:0;width:100%;height:100%; background:rgba(13,17,23,0.92); z-index:30; align-items:center; justify-content:center; flex-direction:column; gap:12px; cursor:pointer; }
+    .sound-overlay { display:none; position:absolute; top:0;left:0;width:100%;height:100%; background:var(--scrim-solid); z-index:30; align-items:center; justify-content:center; flex-direction:column; gap:12px; cursor:pointer; }
     .sound-overlay.visible { display:flex; }
-    .sound-icon { font-size:48px; color:#3fb950; }
-    .sound-ttl { font-size:18px; color:#e6edf3; font-weight:500; }
-    .sound-sub { font-size:12px; color:#8b949e; }
+    .sound-icon { font-size: calc(48px * var(--ui-scale, 1)); color:var(--green); }
+    .sound-ttl { font-size: calc(18px * var(--ui-scale, 1)); color:var(--text); font-weight:500; }
+    .sound-sub { font-size: calc(12px * var(--ui-scale, 1)); color:var(--text-4); }
 
     /* ── Calendar overlay (modal) ── */
-    .cal-overlay { display:none; position:absolute; top:0;left:0;width:100%;height:100%; background:rgba(0,0,0,0.72); z-index:16; align-items:center; justify-content:center; }
-    .cal-modal { background:#161b22; border:0.5px solid #30363d; border-radius:12px; width:88%; height:82%; display:flex; overflow:hidden; position:relative; }
-    .cal-left { flex:0 0 55%; border-right:0.5px solid #21262d; padding:16px 18px; display:flex; flex-direction:column; }
+    .cal-overlay { display:none; position:absolute; top:0;left:0;width:100%;height:100%; background:var(--scrim); z-index:16; align-items:center; justify-content:center; }
+    .cal-modal { background:var(--panel); border:0.5px solid var(--border-2); border-radius:12px; width:88%; height:82%; display:flex; overflow:hidden; position:relative; }
+    .cal-left { flex:0 0 55%; border-right:0.5px solid var(--border); padding:16px 18px; display:flex; flex-direction:column; }
     .cal-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-shrink:0; }
-    .cal-nav-btn { background:none; border:0.5px solid #30363d; border-radius:6px; color:#8b949e; width:44px; height:44px; cursor:pointer; font-size:18px; font-family:inherit; display:flex; align-items:center; justify-content:center; }
-    .cal-nav-btn:hover { color:#e6edf3; border-color:#58a6ff; }
-    .cal-nav-title { font-size:15px; font-weight:500; color:#e6edf3; }
+    .cal-nav-btn { background:none; border:0.5px solid var(--border-2); border-radius:6px; color:var(--text-4); width:44px; height:44px; cursor:pointer; font-size: calc(18px * var(--ui-scale, 1)); font-family:inherit; display:flex; align-items:center; justify-content:center; }
+    .cal-nav-btn:hover { color:var(--text); border-color:var(--blue); }
+    .cal-nav-title { font-size: calc(15px * var(--ui-scale, 1)); font-weight:500; color:var(--text); }
     .cal-table { width:100%; border-collapse:collapse; flex:1; }
-    .cal-table th { font-size:10px; color:#8b949e; text-align:center; padding:4px 0; font-weight:400; }
-    .cal-table th.wknd { color:#f78166; }
+    .cal-table th { font-size: calc(10px * var(--ui-scale, 1)); color:var(--text-4); text-align:center; padding:4px 0; font-weight:400; }
+    .cal-table th.wknd { color:var(--coral); }
     .cal-table td { text-align:center; padding:2px; }
     .cal-right { flex:1; padding:16px 18px; overflow-y:auto; }
-    .cal-close { position:absolute; top:10px; right:12px; background:none; border:0.5px solid #30363d; border-radius:5px; color:#8b949e; padding:10px 14px; font-size:11px; cursor:pointer; font-family:inherit; min-height:44px; display:flex; align-items:center; gap:4px; }
-    .cal-close:hover { color:#e6edf3; }
+    .cal-close { position:absolute; top:10px; right:12px; background:none; border:0.5px solid var(--border-2); border-radius:5px; color:var(--text-4); padding:10px 14px; font-size: calc(11px * var(--ui-scale, 1)); cursor:pointer; font-family:inherit; min-height:44px; display:flex; align-items:center; gap:4px; }
+    .cal-close:hover { color:var(--text); }
 
     /* ── Loading / error states ── */
-    .loading-text { font-size:13px; color:#6e7681; font-style:italic; }
-    .error-text { font-size:13px; color:#f78166; font-style:italic; }
+    .loading-text { font-size: calc(18px * var(--ui-scale, 1)); color:var(--text-4); font-style:italic; }
+    .error-text { font-size: calc(18px * var(--ui-scale, 1)); color:var(--coral); font-style:italic; }
   </style>
 </head>
 <body>
 <div class="db" id="db">
 
-  <!-- Top bar -->
-  <div class="top-bar">
-    <button class="top-btn" id="night-btn" onclick="toggleNightManual()">
-      <i class="ti ti-moon"></i> Night mode
+  <!-- Floating controls -->
+  <div class="fab-row">
+    <button class="fab" id="night-btn" onclick="toggleNightManual()" title="Night mode" aria-label="Night mode">
+      <i class="ti ti-moon"></i>
     </button>
-    <button class="top-btn" onclick="openSettings()">
-      <i class="ti ti-settings"></i> Settings
+    <button class="fab" onclick="openSettings()" title="Settings" aria-label="Settings">
+      <i class="ti ti-settings"></i>
     </button>
   </div>
 
   <div class="db-grid">
 
     <!-- CLOCK -->
-    <div class="card">
-      <div class="clabel">
-        <span id="clock-city-label">Helsinki</span>
-        <button class="ibtn" id="ctog" onclick="toggleClock()">
-          <i class="ti ti-clock"></i> Analog
-        </button>
-      </div>
+    <div class="card" style="justify-content:center">
       <div id="clock-digital">
+        <!-- City caption lives on the weather card; repeating it here just ate
+             vertical space the clock needed. -->
+        <span id="clock-city-label" hidden></span>
         <div class="time-big" id="dtime">--:--</div>
         <div class="date-str" id="ddate">—</div>
-        <div class="hijri-date" id="hijri-date">—</div>
+        <div class="hijri-date" id="hijri-date" data-opt="3">—</div>
       </div>
       <div id="clock-analog">
         <!-- viewBox stays 120×120 so all coordinate math is unchanged;
              width/height scale the render up to 190px for children's readability -->
-        <svg width="190" height="190" viewBox="0 0 120 120">
-          <circle cx="60" cy="60" r="56" fill="#0d1117" stroke="#30363d" stroke-width="1.5"/>
+        <svg width="168" height="168" viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="56" fill="var(--bg-deep)" stroke="var(--border-2)" stroke-width="1.5"/>
           <g id="hmarks"></g>
           <g id="hnums"></g>
           <!-- Hour hand: thick for child readability -->
-          <line id="hhand" x1="60" y1="60" x2="60" y2="36" stroke="#e6edf3" stroke-width="6" stroke-linecap="round"/>
+          <line id="hhand" x1="60" y1="60" x2="60" y2="36" stroke="var(--text)" stroke-width="6" stroke-linecap="round"/>
           <!-- Minute hand: thinner, blue -->
-          <line id="mhand" x1="60" y1="60" x2="60" y2="22" stroke="#58a6ff" stroke-width="3" stroke-linecap="round"/>
+          <line id="mhand" x1="60" y1="60" x2="60" y2="22" stroke="var(--blue)" stroke-width="3" stroke-linecap="round"/>
           <!-- Second hand: thin red -->
-          <line id="shand" x1="60" y1="66" x2="60" y2="16" stroke="#f78166" stroke-width="1.5" stroke-linecap="round"/>
-          <circle cx="60" cy="60" r="4" fill="#e6edf3"/>
+          <line id="shand" x1="60" y1="66" x2="60" y2="16" stroke="var(--coral)" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="60" cy="60" r="4" fill="var(--text)"/>
         </svg>
-        <div class="ampm-lbl" id="ampm-lbl">AM</div>
-        <div class="date-str" id="adate" style="text-align:center;margin-top:2px">—</div>
+        <div class="analog-side">
+          <div class="ampm-lbl" id="ampm-lbl">AM</div>
+          <div class="date-str" id="adate">—</div>
+        </div>
       </div>
     </div>
 
-    <!-- PRAYER TIMES -->
-    <div class="card">
-      <div class="clabel">Prayer times</div>
-      <div class="next-prayer-block" id="next-prayer-block">
-        <div class="np-label">Next prayer</div>
-        <div style="display:flex;align-items:baseline;gap:9px">
-          <span class="np-name" id="np-name">—</span>
-          <span class="np-time" id="np-time">--:--</span>
-        </div>
-        <div class="np-cd" id="np-cd"><i class="ti ti-clock" style="font-size:10px;vertical-align:-1px"></i> Loading…</div>
+    <!-- PRAYER STRIP -->
+    <div class="card prayer-card">
+      <div class="clabel">
+        Prayer times
+        <button class="ibtn" onclick="openPrayerMonth()" title="Whole month" aria-label="Whole month" style="padding:8px 12px">
+          <i class="ti ti-calendar-month"></i>
+        </button>
       </div>
       <div class="prayer-list" id="prayer-list">
         <div class="loading-text" style="padding:8px 0">Loading prayer times…</div>
       </div>
       <div class="adhan-row">
-        <button class="tog-on" id="adhan-btn" onclick="toggleAdhan()">
-          <i class="ti ti-volume"></i> Adhan on
-        </button>
         <div class="adhan-wave" id="adhan-wave">
           <i class="ti ti-music"></i> Playing…
         </div>
@@ -364,27 +656,36 @@
     <!-- WEATHER -->
     <div class="card">
       <div class="clabel"><span id="weather-city-label">Helsinki</span> weather</div>
-      <div id="weather-content">
+      <div id="weather-content" style="display:flex;flex-direction:column;flex:1;min-height:0">
         <div class="loading-text">Loading weather…</div>
       </div>
     </div>
 
-    <!-- CALENDAR -->
-    <div class="card cal-card">
+    <!-- CALENDAR — full-height rail -->
+    <div class="card agenda-rail">
       <div class="clabel">
         Calendar
-        <button class="ibtn" onclick="openCalendar()" style="font-size:9px">
-          <i class="ti ti-calendar"></i> See all ↗
-        </button>
+        <span id="cal-sync" style="font-size:13px;color:var(--text-4);font-weight:400;letter-spacing:0"></span>
+        <span style="display:flex;gap:6px">
+          <button class="ibtn" onclick="refreshCalendarNow()" title="Fetch the calendar feed now" style="padding:8px 10px">
+            <i class="ti ti-refresh"></i>
+          </button>
+          <button class="ibtn" onclick="addCalendarEvent()" title="Add an event" style="padding:8px 10px">
+            <i class="ti ti-plus"></i>
+          </button>
+          <button class="ibtn" onclick="openCalendar()" title="See all events" style="padding:8px 10px">
+            <i class="ti ti-calendar"></i>
+          </button>
+        </span>
       </div>
       <div class="cal-inner">
-        <div>
+        <div class="cal-today-sec">
           <div class="sec-title t-today" id="today-label">Today</div>
           <div class="today-evts" id="today-evts">
             <div class="loading-text">Loading calendar…</div>
           </div>
         </div>
-        <div>
+        <div class="cal-up-sec">
           <div class="sec-title t-up">Upcoming</div>
           <div id="upcoming-list">
             <div class="loading-text">—</div>
@@ -415,13 +716,49 @@
       </div>
     </div>
     <div class="s-sec">
+      <div class="s-lbl">Theme</div>
+      <div class="s-tgg">
+        <button class="s-opt" id="s-th-dark" onclick="setTheme('dark')">Dark</button>
+        <button class="s-opt" id="s-th-cream" onclick="setTheme('cream')">Cream</button>
+        <button class="s-opt" id="s-th-white" onclick="setTheme('white')">White</button>
+      </div>
+      <div class="s-hint" style="margin-top:6px">Night mode stays black in all three — a bright screen at 3am would defeat the purpose.</div>
+    </div>
+    <div class="s-sec">
+      <div class="s-lbl">Text size</div>
+      <div class="s-tgg">
+        <button class="s-opt" id="s-fs-0" onclick="setUiScale(0.85)">S</button>
+        <button class="s-opt" id="s-fs-1" onclick="setUiScale(1)">M</button>
+        <button class="s-opt" id="s-fs-2" onclick="setUiScale(1.12)">L</button>
+        <button class="s-opt" id="s-fs-3" onclick="setUiScale(1.25)">XL</button>
+      </div>
+      <div class="s-hint" style="margin-top:6px">Applies instantly. The screen is a fixed size, so larger text shows fewer forecast hours and calendar entries rather than spilling over the edge.</div>
+    </div>
+    <div class="s-sec">
       <div class="s-lbl">Prayer calculation method</div>
       <select class="s-inp" id="s-method" style="cursor:pointer">
+        <option value="15">Moonsighting Committee (matches DAMIC)</option>
         <option value="3">Muslim World League (Europe)</option>
         <option value="2">ISNA (North America)</option>
         <option value="5">Egyptian General Authority</option>
         <option value="4">Umm al-Qura, Makkah</option>
       </select>
+      <div class="s-hint" style="margin-top:6px">At Helsinki's latitude the sun never reaches 18&deg; below the horizon in summer, so angle-based methods (MWL, ISNA, Egyptian) produce badly wrong Fajr and Isha. Moonsighting Committee handles high latitudes correctly.</div>
+    </div>
+    <div class="s-sec">
+      <div class="s-lbl">Jumu'ah (Fridays)</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input class="s-inp" id="s-jumuah" type="time" style="flex:1">
+        <label class="s-opt" style="flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:6px 10px;cursor:pointer">
+          <input type="checkbox" id="s-jumuah-on" style="width:18px;height:18px"> On
+        </label>
+      </div>
+      <div class="s-hint" style="margin-top:6px">Replaces Dhuhr on Fridays only, and the adhan follows it. Ask the masjid for the current time — it is set by them, not calculated.</div>
+    </div>
+    <div class="s-sec">
+      <div class="s-lbl">Fine-tune (minutes)</div>
+      <div class="s-hint" style="margin-bottom:8px">Nudge each prayer to match your masjid exactly. Defaults match <a href="https://masjidbox.com/prayer-times/damic" target="_blank" style="color:var(--blue)">DAMIC</a>.</div>
+      <div id="tune-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>
     </div>
     <div class="s-sec">
       <div class="s-lbl">Night mode (burn-in protection)</div>
@@ -433,13 +770,19 @@
     </div>
     <div class="s-sec">
       <div class="s-lbl">Adhan</div>
-      <button class="s-save-btn" onclick="demoAdhan()" style="background:rgba(63,185,80,0.1);border-color:#3fb950;color:#3fb950;margin-top:0">
+      <button class="s-save-btn" onclick="demoAdhan()" style="background:var(--tint-green);border-color:var(--green);color:var(--green);margin-top:0">
         <i class="ti ti-player-play" style="vertical-align:-2px;margin-right:5px"></i>Test Adhan
       </button>
       <div class="s-hint" style="margin-top:6px">Plays a preview. Tap the Adhan on/off button on the dashboard to toggle.</div>
+      <div class="s-hint" style="margin-top:6px">Own recording? Put <code>adhan.mp3</code> next to <code>index.html</code> — it overrides the online one. Add <code>adhan-fajr.mp3</code> for the Fajr call.</div>
     </div>
     <div class="s-sec">
-      <div class="s-lbl">Calendar — iCal URL</div>
+      <div class="s-lbl">Calendar bridge URL (recommended)</div>
+      <input class="s-inp" id="s-script" placeholder="https://script.google.com/…/exec">
+      <div class="s-hint" style="margin-top:6px">Apps Script web app — gives live reads and lets you add events from the dashboard. Setup steps are in <code>apps-script/Code.gs</code>. Keep this URL private.</div>
+    </div>
+    <div class="s-sec">
+      <div class="s-lbl">Calendar — iCal URL (fallback)</div>
       <input class="s-inp" id="s-ical" type="text" placeholder="https://calendar.google.com/calendar/ical/…" style="font-size:10px">
       <div class="s-hint">Google Calendar → Settings → [your calendar] → Integrate calendar → Secret address in iCal format</div>
     </div>
@@ -466,8 +809,71 @@
 
   <!-- Night mode overlay -->
   <div class="dim-block" id="dim-block" onclick="wakeFromNight()">
-    <div class="dim-time" id="dim-time">--:--</div>
-    <div class="dim-lbl">Night mode · tap to wake</div>
+    <div class="dim-inner" id="dim-inner">
+      <div class="dim-time" id="dim-time">--:--</div>
+      <div class="dim-lbl">Night mode · tap to wake</div>
+    </div>
+  </div>
+
+  <!-- Verification detail -->
+  <div class="ev-overlay" id="vd-overlay">
+    <div class="ev-modal" style="width:600px">
+      <div class="ev-ttl">Dashboard vs masjid</div>
+      <div id="vd-body"></div>
+      <div style="display:flex;gap:10px;margin-top:6px">
+        <button class="s-save-btn" style="flex:1;background:none;border-color:var(--border-2);color:var(--text-4)"
+                onclick="closeVerifyDetail()">Close</button>
+        <button class="s-save-btn" style="flex:1" onclick="maybeVerifyPrayerTimes(true).then(showVerifyDetail)">Check now</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Monthly prayer timetable -->
+  <div class="pm-overlay" id="pm-overlay">
+    <div class="pm-modal">
+      <div class="pm-hdr">
+        <button class="cal-nav-btn" onclick="stepPrayerMonth(-1)"><i class="ti ti-chevron-left"></i></button>
+        <div class="pm-ttl" id="pm-title">—</div>
+        <button class="cal-nav-btn" onclick="stepPrayerMonth(1)"><i class="ti ti-chevron-right"></i></button>
+        <button class="cal-nav-btn" style="margin-left:auto" onclick="closePrayerMonth()"><i class="ti ti-x"></i></button>
+      </div>
+      <div class="pm-scroll" id="pm-body">
+        <div class="loading-text" style="padding:20px">Loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- New event composer (only reachable when the Apps Script bridge is set) -->
+  <div class="ev-overlay" id="ev-overlay">
+    <div class="ev-modal">
+      <div class="ev-ttl" id="ev-modal-title">New event</div>
+      <input class="s-inp ev-in" id="ev-title" placeholder="What's happening?" autocomplete="off">
+      <div style="display:flex;gap:10px">
+        <div style="flex:2">
+          <div class="s-lbl">Date</div>
+          <input class="s-inp ev-in" id="ev-date" type="date">
+        </div>
+        <div style="flex:1">
+          <div class="s-lbl">Time</div>
+          <input class="s-inp ev-in" id="ev-time" type="time">
+        </div>
+        <div style="flex:1">
+          <div class="s-lbl">Mins</div>
+          <input class="s-inp ev-in" id="ev-dur" type="number" step="15" min="15" value="60">
+        </div>
+      </div>
+      <label class="ev-check">
+        <input type="checkbox" id="ev-allday"> All day
+      </label>
+      <div class="ev-msg" id="ev-msg"></div>
+      <div style="display:flex;gap:10px;margin-top:4px">
+        <button class="s-save-btn" id="ev-delete" style="flex:0 0 auto;padding-left:18px;padding-right:18px;background:var(--tint-red);border-color:var(--red);color:var(--red);display:none"
+                onclick="deleteCurrentEvent()"><i class="ti ti-trash"></i></button>
+        <button class="s-save-btn" style="flex:1;background:none;border-color:var(--border-2);color:var(--text-4)"
+                onclick="closeEventComposer()">Cancel</button>
+        <button class="s-save-btn" style="flex:1" id="ev-save" onclick="saveNewEvent()">Add to calendar</button>
+      </div>
+    </div>
   </div>
 
   <!-- Sound unlock overlay -->
@@ -497,7 +903,7 @@
         </table>
       </div>
       <div class="cal-right" id="cal-events-panel">
-        <div style="font-size:11px;color:#8b949e;padding-top:6px">Select a date to see events</div>
+        <div style="font-size:11px;color:var(--text-4);padding-top:6px">Select a date to see events</div>
       </div>
       <button class="cal-close" onclick="closeCalendar()"><i class="ti ti-x"></i> Close</button>
     </div>
@@ -516,34 +922,103 @@ let cfg = {
   lon: 24.9384,
   cityName: 'Helsinki',
   clockMode: 'digital',
-  prayerMethod: 3,
+  prayerMethod: 15,     // Moonsighting Committee — only method that behaves at 60°N
   nightMode: 'auto',    // 'auto' | 'manual'
-  icalUrl: ''
+  icalUrl: '',
+  // Per-prayer minute offsets applied on top of the calculation. Defaults are
+  // measured against Darul Aman Islamic Center (DAMIC), Helsinki, 2 Aug 2026:
+  // method 15 already matches Fajr/Shuruq/Asr exactly; these close the rest.
+  tune: { Fajr: 0, Sunrise: 0, Dhuhr: 5, Asr: 0, Maghrib: 3, Isha: -4 }
 };
+const TUNE_KEYS = ['Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 
 // Runtime state
 let prayerTimes = {};       // { Fajr: '03:14', Sunrise: '04:07', ... }
 let calEvents = {};         // { 'YYYY-MM-DD': [{title, time, color, start, end}] }
-let adhanOn = true;
+// Per-prayer adhan. Fajr defaults to OFF — most households don't want the
+// call playing aloud at ~03:00. Everything else defaults on.
+const ADHAN_DEFAULTS = { Fajr: false, Dhuhr: true, Asr: true, Maghrib: true, Isha: true };
+let adhanPer = Object.assign({}, ADHAN_DEFAULTS);
 let audioUnlocked = false;
+
+function adhanEnabledFor(key) {
+  return !!adhanPer[key];
+}
+
+// Any prayer still enabled means we need audio unlocked at some point.
+function anyAdhanOn() {
+  return Object.values(adhanPer).some(Boolean);
+}
+
+function loadAdhanPrefs() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('hd_adhan_per') || 'null');
+    if (saved) { adhanPer = Object.assign({}, ADHAN_DEFAULTS, saved); return; }
+  } catch(_) {}
+  // Migrate the old single on/off flag, if present, to all five prayers.
+  const legacy = localStorage.getItem('hd_adhan_on');
+  if (legacy !== null) {
+    const on = legacy !== '0' && legacy !== 'false';
+    Object.keys(adhanPer).forEach(k => adhanPer[k] = on);
+  }
+}
+
+function togglePrayerAdhan(key) {
+  adhanPer[key] = !adhanPer[key];
+  localStorage.setItem('hd_adhan_per', JSON.stringify(adhanPer));
+  if (!adhanPer[key]) silenceAdhan();
+  // Turning one on for the first time still needs the audio unlock gesture.
+  if (adhanPer[key] && !audioUnlocked) maybShowSoundOverlay();
+  renderPrayerTimes();
+}
 let currentAdhan = null;
 
-// Islamic Network CDN — free, no API key, CORS-enabled
-// Multiple recordings available; Makkah adhan used by default.
-// Full list: https://cdn.islamic.network/adhans/
+// Aladhan CDN — free, no API key. These are the files the official
+// Aladhan player uses. Full list: https://aladhan.com/download-adhans
 const ADHAN_URLS = {
-  makkah:  'https://cdn.islamic.network/adhans/adhan-makkah.mp3',
-  madinah: 'https://cdn.islamic.network/adhans/adhan-al-aqsa.mp3',
-  turkey:  'https://cdn.islamic.network/adhans/adhan-turkey.mp3',
+  alafasyDubai: 'https://cdn.aladhan.com/audio/adhans/a4.mp3',  // Mishary Rashid Alafasy (Dubai One TV)
+  alafasy2:     'https://cdn.aladhan.com/audio/adhans/a7.mp3',
+  alafasy3:     'https://cdn.aladhan.com/audio/adhans/a9.mp3',
+  nafees:       'https://cdn.aladhan.com/audio/adhans/a1.mp3',  // Ahmad al-Nafees
+  turkey:       'https://cdn.aladhan.com/audio/adhans/a2.mp3',  // Hafiz Mustafa Özcan
+  zahrani:      'https://cdn.aladhan.com/audio/adhans/a11-mansour-al-zahrani.mp3',
 };
-const ADHAN_URL = ADHAN_URLS.makkah;
-let adhanTimeouts = [];
+const ADHAN_URL = ADHAN_URLS.alafasyDubai;
+
+// Local recordings take priority over the CDN: instant, offline-proof, and
+// no cross-origin surprises. Drop either file next to index.html to use it.
+//   adhan.mp3       — used for Dhuhr, Asr, Maghrib, Isha (and Fajr as a fallback)
+//   adhan-fajr.mp3  — optional; the Fajr adhan with "as-salatu khayrun min an-nawm"
+const LOCAL_ADHAN_FILES = { normal: 'adhan.mp3', fajr: 'adhan-fajr.mp3' };
+let localAdhan = { normal: null, fajr: null };
+
+async function detectLocalAdhans() {
+  for (const key of ['normal', 'fajr']) {
+    const file = LOCAL_ADHAN_FILES[key];
+    try {
+      const r = await fetch(file, { method: 'HEAD', cache: 'no-store' });
+      const ct = (r.headers.get('content-type') || '').toLowerCase();
+      if (r.ok && (ct.includes('audio') || ct.includes('mpeg') || ct.includes('octet-stream'))) {
+        localAdhan[key] = file;
+        console.log('[adhan] using local file:', file);
+      }
+    } catch(_) { /* not present — fall back to CDN */ }
+  }
+}
+
+// Fajr gets its own recording when supplied, otherwise the standard one.
+function adhanUrlFor(prayerKey) {
+  if (prayerKey === 'Fajr' && localAdhan.fajr) return localAdhan.fajr;
+  if (localAdhan.normal) return localAdhan.normal;
+  return ADHAN_URL;
+}
+// (adhanTimeouts removed — firing is now tick-based, see checkAdhanDue)
 let nightActive = false;
 let nightAutoScheduled = false;
 let calYear, calMonth, calSelDate;
 let currentDateStr = '';   // 'YYYY-MM-DD', checked each minute for day change
 
-const EVENT_COLORS = ['#58a6ff','#f78166','#3fb950','#f0b429','#b388ff','#79c0ff'];
+const EVENT_COLORS = ['var(--blue)','var(--coral)','var(--green)','var(--amber)','var(--ev5)','var(--ev6)'];
 
 // ═══════════════════════════════════════════════════════════════
 // SETTINGS
@@ -554,9 +1029,194 @@ function loadSettings() {
   cfg.lon          = parseFloat(localStorage.getItem('hd_lon') || '24.9384');
   cfg.cityName     = localStorage.getItem('hd_city_name')     || 'Helsinki';
   cfg.clockMode    = localStorage.getItem('hd_clock_mode')    || 'digital';
-  cfg.prayerMethod = parseInt(localStorage.getItem('hd_prayer_method') || '3');
+  // One-time migration: MWL was the old default and is wrong at this latitude.
+  // Move existing installs to Moonsighting Committee, but only once, so a
+  // deliberate later switch back to MWL is respected.
+  if (!localStorage.getItem('hd_method_migrated_v2')) {
+    if ((localStorage.getItem('hd_prayer_method') || '3') === '3') {
+      localStorage.setItem('hd_prayer_method', '15');
+    }
+    localStorage.setItem('hd_method_migrated_v2', '1');
+  }
+  cfg.prayerMethod = parseInt(localStorage.getItem('hd_prayer_method') || '15');
   cfg.nightMode    = localStorage.getItem('hd_night_mode')    || 'auto';
   cfg.icalUrl      = localStorage.getItem('hd_ical_url')      || '';
+  cfg.uiScale      = parseFloat(localStorage.getItem('hd_ui_scale') || '1');
+  cfg.scriptUrl    = localStorage.getItem('hd_script_url')    || '';
+  cfg.theme        = localStorage.getItem('hd_theme')         || 'dark';
+  // Default is DAMIC's published Jumu'ah time; enabled by default since the
+  // household attends there, but editable and switchable off.
+  cfg.jumuahTime    = localStorage.getItem('hd_jumuah_time') || '12:32';
+  cfg.jumuahEnabled = localStorage.getItem('hd_jumuah_on') !== '0';
+  try {
+    const saved = JSON.parse(localStorage.getItem('hd_tune') || 'null');
+    if (saved) cfg.tune = Object.assign({}, cfg.tune, saved);
+  } catch(_) { /* keep defaults */ }
+}
+
+const THEMES = {
+  dark:  { meta: '#0d1117' },
+  cream: { meta: '#efe7d7' },
+  white: { meta: '#eef0f3' },
+};
+
+function setTheme(name, persist = true) {
+  cfg.theme = THEMES[name] ? name : 'dark';
+  Object.keys(THEMES).forEach(t => {
+    document.body.classList.toggle('theme-' + t, t === cfg.theme && t !== 'dark');
+    const el = document.getElementById('s-th-' + t);
+    if (el) el.className = t === cfg.theme ? 's-opt on' : 's-opt';
+  });
+  // Keep the Android status/URL bar in step with the page.
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', THEMES[cfg.theme].meta);
+  if (persist) localStorage.setItem('hd_theme', cfg.theme);
+  fitToScale();   // text metrics don't change, but tints/borders can shift heights
+}
+
+const UI_SCALES = [0.85, 1, 1.12, 1.25];
+
+function setUiScale(v, persist = true) {
+  cfg.uiScale = v;
+  document.getElementById('db').style.setProperty('--ui-scale', v);
+  UI_SCALES.forEach((s, i) => {
+    const el = document.getElementById('s-fs-' + i);
+    if (el) el.className = Math.abs(s - v) < 0.001 ? 's-opt on' : 's-opt';
+  });
+  if (persist) localStorage.setItem('hd_ui_scale', String(v));
+  // Larger text means fewer forecast columns / agenda rows fit; re-render so
+  // each panel trims its own content instead of overflowing the card.
+  fitToScale();
+}
+
+// The canvas is a fixed 1280×800, so bigger text has to be paid for with
+// content. Rather than hard-coding "hide X above scale Y" — which silently
+// rots whenever a size changes — this measures the real layout and drops
+// optional elements in priority order until everything fits.
+//
+// Elements opt in with data-opt="N"; lower N is sacrificed first.
+let fitting = false;   // guards the ResizeObserver against its own changes
+
+/**
+ * requestAnimationFrame never fires while the tab is hidden, which would leave
+ * the layout untrimmed until someone looked at it — exactly the wrong moment on
+ * a wall display that may render with the screen off. Fall back to a timeout.
+ */
+function afterLayout(fn) {
+  if (document.hidden) setTimeout(fn, 0);
+  else requestAnimationFrame(fn);
+}
+
+function fitToScale() {
+  afterLayout(() => {
+    document.querySelectorAll('[data-opt]').forEach(el => el.style.display = '');
+    syncForecastColumns();
+    trimOverflow();
+  });
+}
+
+// Trim per container, not globally — hiding the Hijri date does nothing for an
+// overflowing weather card, and an earlier global version did exactly that,
+// dropping content from panels that were already fine.
+function trimOverflow() {
+  if (fitting) return;
+  fitting = true;
+  try {
+    for (let pass = 0; pass < 16; pass++) {
+      const bad = overflowingContainers();
+      if (!bad.length) break;
+      let hidSomething = false;
+      for (const container of bad) {
+        const opt = [...container.querySelectorAll('[data-opt]')]
+          .filter(e => e.style.display !== 'none')
+          .sort((a, b) => Number(a.dataset.opt) - Number(b.dataset.opt))[0];
+        if (!opt) continue;
+        opt.style.display = 'none';
+        if (opt.classList.contains('hcol')) syncForecastColumns();
+        hidSomething = true;
+      }
+      if (!hidSomething) break;   // nothing left to give
+    }
+    const left = findOverflow();
+    if (left.length) console.warn('[layout] still overflowing after trim:', left.join(' | '));
+  } finally {
+    fitting = false;
+  }
+}
+
+/**
+ * The agenda rail spans all three grid rows, so when the calendar finishes
+ * loading the row heights change and the weather card can shrink *after* the
+ * initial fit already ran. Watching the cards catches that, and any other
+ * async content shift, instead of hoping one fit at render time is enough.
+ */
+function watchLayout() {
+  if (!window.ResizeObserver) return;
+  let t = null;
+  const ro = new ResizeObserver(() => {
+    if (fitting) return;
+    clearTimeout(t);
+    t = setTimeout(() => { if (findOverflow().length) trimOverflow(); }, 150);
+  });
+  document.querySelectorAll('.card, .hgrid, .prayer-list').forEach(el => ro.observe(el));
+}
+
+function overflowingContainers() {
+  return [...document.querySelectorAll('.card, .prayer-list, .hgrid, .cal-inner')]
+    .filter(el => !el.matches('#upcoming-list, .today-evts'))
+    .filter(el => el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1);
+}
+
+// Keep the grid column count in step with however many columns are visible,
+// otherwise hidden ones leave gaps.
+function syncForecastColumns() {
+  const grid = document.querySelector('.hgrid');
+  if (!grid) return;
+  const shown = [...grid.querySelectorAll('.hcol')].filter(e => e.style.display !== 'none').length;
+  grid.style.gridTemplateColumns = `repeat(${Math.max(shown, 1)}, minmax(0, 1fr))`;
+}
+
+// Containers that must never scroll. #upcoming-list and .today-evts are
+// deliberately excluded — those are meant to scroll.
+function findOverflow() {
+  const bad = [];
+  document.querySelectorAll('.card, .prayer-list, .hgrid, .cal-inner').forEach(el => {
+    if (el.matches('#upcoming-list, .today-evts')) return;
+    if (el.scrollHeight > el.clientHeight + 1) bad.push(`${el.className.split(' ')[0]} H ${el.scrollHeight}>${el.clientHeight}`);
+    if (el.scrollWidth  > el.clientWidth  + 1) bad.push(`${el.className.split(' ')[0]} W ${el.scrollWidth}>${el.clientWidth}`);
+  });
+
+  // Grid children clip without changing the grid's own scrollHeight, so a
+  // too-tall prayer column was invisible to the check above. Compare each
+  // column's content against the track it sits in.
+  const list = document.querySelector('.prayer-list');
+  if (list) {
+    const track = list.clientHeight;
+    list.querySelectorAll('.prayer-row').forEach(row => {
+      const need = [...row.children].reduce((sum, c) => sum + c.offsetHeight, 0)
+                 + 16 + (row.children.length - 1) * 2;   // padding + gaps
+      if (need > track + 1) bad.push(`prayer-row H ${need}>${track}`);
+    });
+  }
+  return bad;
+}
+
+// Builds Aladhan's `tune` parameter. Order is fixed and positional:
+// Imsak, Fajr, Sunrise, Dhuhr, Asr, Maghrib, Sunset, Isha, Midnight
+function tuneParam() {
+  const t = cfg.tune;
+  return [0, t.Fajr, t.Sunrise, t.Dhuhr, t.Asr, t.Maghrib, 0, t.Isha, 0].join(',');
+}
+
+function buildTuneGrid() {
+  const grid = document.getElementById('tune-grid');
+  if (!grid) return;
+  grid.innerHTML = TUNE_KEYS.map(k => `
+    <div>
+      <div style="font-size:11px;opacity:.6;margin-bottom:3px">${k === 'Sunrise' ? 'Shuruq' : k}</div>
+      <input class="s-inp" type="number" id="tune-${k}" value="${cfg.tune[k]}"
+             step="1" style="padding:6px 8px;text-align:center">
+    </div>`).join('');
 }
 
 // ── Geocoding via Open-Meteo (free, no key) ──
@@ -597,6 +1257,12 @@ function applySettingsUI() {
   document.getElementById('s-location').value = cfg.location;
   document.getElementById('s-method').value   = String(cfg.prayerMethod);
   document.getElementById('s-ical').value      = cfg.icalUrl;
+  document.getElementById('s-script').value    = cfg.scriptUrl;
+  document.getElementById('s-jumuah').value    = cfg.jumuahTime;
+  document.getElementById('s-jumuah-on').checked = cfg.jumuahEnabled;
+  buildTuneGrid();
+  setTheme(cfg.theme, false);
+  setUiScale(cfg.uiScale, false);
   setClockModeUI(cfg.clockMode);
   setNightModeUI(cfg.nightMode);
 }
@@ -607,6 +1273,17 @@ async function saveSettings() {
   cfg.location     = newLocation;
   cfg.prayerMethod = parseInt(document.getElementById('s-method').value);
   cfg.icalUrl      = document.getElementById('s-ical').value.trim();
+  cfg.scriptUrl    = document.getElementById('s-script').value.trim();
+  localStorage.setItem('hd_script_url', cfg.scriptUrl);
+  cfg.jumuahTime    = document.getElementById('s-jumuah').value || '12:32';
+  cfg.jumuahEnabled = document.getElementById('s-jumuah-on').checked;
+  localStorage.setItem('hd_jumuah_time', cfg.jumuahTime);
+  localStorage.setItem('hd_jumuah_on', cfg.jumuahEnabled ? '1' : '0');
+  TUNE_KEYS.forEach(k => {
+    const el = document.getElementById('tune-' + k);
+    if (el) cfg.tune[k] = parseInt(el.value, 10) || 0;
+  });
+  localStorage.setItem('hd_tune', JSON.stringify(cfg.tune));
   localStorage.setItem('hd_location',      cfg.location);
   localStorage.setItem('hd_clock_mode',    cfg.clockMode);
   localStorage.setItem('hd_prayer_method', cfg.prayerMethod);
@@ -645,7 +1322,7 @@ function drawMarkers() {
     const l = document.createElementNS('http://www.w3.org/2000/svg','line');
     l.setAttribute('x1',p1.x); l.setAttribute('y1',p1.y);
     l.setAttribute('x2',p2.x); l.setAttribute('y2',p2.y);
-    l.setAttribute('stroke', isH ? '#484f58' : '#2d333b');
+    l.setAttribute('stroke', isH ? 'var(--text-6)' : 'var(--text-6)');
     l.setAttribute('stroke-width', isH ? '1.5' : '0.8');
     mg.appendChild(l);
   }
@@ -654,7 +1331,7 @@ function drawMarkers() {
     const t = document.createElementNS('http://www.w3.org/2000/svg','text');
     t.setAttribute('x',p.x); t.setAttribute('y',p.y);
     t.setAttribute('text-anchor','middle'); t.setAttribute('dominant-baseline','central');
-    t.setAttribute('font-size','12'); t.setAttribute('fill','#8b949e');
+    t.setAttribute('font-size','12'); t.setAttribute('fill','var(--text-4)');
     t.setAttribute('font-family','system-ui');
     t.textContent = lbl[i]; ng.appendChild(t);
   }
@@ -702,15 +1379,17 @@ function updateClock() {
 
   // Prayer countdown (update every tick)
   updateNextPrayerCountdown();
+
+  // Adhan is fired from here rather than a long setTimeout — see checkAdhanDue.
+  checkAdhanDue();
 }
 
 function setClockModeUI(m) {
   cfg.clockMode = m;
   document.getElementById('clock-digital').style.display = m === 'digital' ? 'block' : 'none';
   document.getElementById('clock-analog').style.display  = m === 'analog'  ? 'flex'  : 'none';
-  document.getElementById('ctog').innerHTML = m === 'digital'
-    ? '<i class="ti ti-clock"></i> Analog'
-    : '<i class="ti ti-123"></i> Digital';
+  // The on-card Analog/Digital button was removed in the redesign; the control
+  // now lives in Settings only (s-dig / s-ana below).
   document.getElementById('s-dig').className = m === 'digital' ? 's-opt on' : 's-opt';
   document.getElementById('s-ana').className = m === 'analog'  ? 's-opt on' : 's-opt';
 }
@@ -756,6 +1435,31 @@ function fmtCountdown(ms) {
 // ═══════════════════════════════════════════════════════════════
 // PRAYER TIMES
 // ═══════════════════════════════════════════════════════════════
+/**
+ * Jumu'ah replaces Dhuhr on Fridays only. The masjid sets its own congregation
+ * time, which is not derivable from any calculation, so it's a setting.
+ *
+ * Everything reads prayer times through effectiveTime()/effectiveLabel() rather
+ * than touching prayerTimes directly, which keeps the cached API response
+ * unmodified — overwriting Dhuhr in place would have poisoned the offline cache
+ * with a Friday time and shown it on a Saturday.
+ */
+function isFridayNow() { return new Date().getDay() === 5; }
+
+function jumuahActive() {
+  return cfg.jumuahEnabled && !!cfg.jumuahTime && isFridayNow();
+}
+
+function effectiveTime(key) {
+  if (key === 'Dhuhr' && jumuahActive()) return cfg.jumuahTime;
+  return prayerTimes[key];
+}
+
+function effectiveLabel(key, label) {
+  if (key === 'Dhuhr' && jumuahActive()) return "Jumu'ah";
+  return label;
+}
+
 const PRAYER_DISPLAY = [
   { key: 'Fajr',    label: 'Fajr',             shuruq: false },
   { key: 'Sunrise', label: 'Shuruq (sunrise)',  shuruq: true  },
@@ -768,19 +1472,223 @@ const PRAYER_DISPLAY = [
 async function fetchPrayerTimes() {
   const now = new Date();
   const dd = pad(now.getDate()), mm = pad(now.getMonth()+1), yyyy = now.getFullYear();
-  const url = `https://api.aladhan.com/v1/timings/${dd}-${mm}-${yyyy}?latitude=${cfg.lat}&longitude=${cfg.lon}&method=${cfg.prayerMethod}`;
+  const url = `https://api.aladhan.com/v1/timings/${dd}-${mm}-${yyyy}?latitude=${cfg.lat}&longitude=${cfg.lon}&method=${cfg.prayerMethod}&tune=${tuneParam()}`;
   try {
     const res = await fetch(url);
     const json = await res.json();
+    if (!json.data || !json.data.timings) throw new Error('unexpected response');
     prayerTimes = json.data.timings;
-    renderPrayerTimes();
-    scheduleAdhans();
-    scheduleNightMode();
+    savePrayerCache(prayerTimes);
+    prayerTimesStale = false;
+    const badge = document.querySelector('.stale-badge');
+    if (badge) badge.remove();
+    applyPrayerTimes();
   } catch(e) {
     console.error('Prayer times fetch failed', e);
-    document.getElementById('prayer-list').innerHTML =
-      '<div class="error-text" style="padding:8px 0"><i class="ti ti-wifi-off"></i> Unavailable</div>';
+    // Fall back to the last known times. They drift by a couple of minutes a
+    // day, so a stale copy is far better than no prayer times and no adhan —
+    // which is what a router reboot used to cause for the whole day.
+    const cached = loadPrayerCache();
+    if (cached) {
+      prayerTimes = cached.timings;
+      prayerTimesStale = true;
+      console.warn('[prayer] using cached times from', cached.date);
+      applyPrayerTimes();
+      showStaleBadge(cached.date);
+    } else {
+      document.getElementById('prayer-list').innerHTML =
+        '<div class="error-text" style="padding:8px 0"><i class="ti ti-wifi-off"></i> Prayer times unavailable — no cached copy yet.</div>';
+    }
   }
+}
+
+function applyPrayerTimes() {
+  renderPrayerTimes();
+  primeAdhanWatcher();
+  scheduleNightMode();
+  renderVerifyState();
+  maybeVerifyPrayerTimes();   // no-ops unless a week has passed
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MASJID VERIFICATION
+//
+// The calculation approximates DAMIC's published table via the tune offsets, so
+// the gap between them creeps over months. This checks weekly and *tells* you;
+// it never adjusts anything itself — a misparsed page silently becoming real
+// prayer times is the one failure this app must not be capable of.
+//
+// Two deliberate design points:
+//  - Day-to-day movement of prayer times is astronomy, not error. Only the
+//    OFFSET between our times and the masjid's is a signal.
+//  - A single reading never raises an alarm. Around the daylight-saving switch
+//    one source can update before the other and the offset briefly looks like
+//    an hour; requiring two consecutive checks avoids crying wolf twice a year.
+// ═══════════════════════════════════════════════════════════════
+const VERIFY_INTERVAL_MS = 7  * 86400000;   // weekly
+const VERIFY_TOLERANCE   = 5;               // minutes; below this is normal wobble
+const VERIFY_SOFT_DAYS   = 14;              // dim hint after this long unverified
+const VERIFY_LOUD_DAYS   = 28;              // unmissable badge after this long
+const VERIFY_KEYS = { Fajr:'Fajr', Shuruq:'Sunrise', Dhuhr:'Dhuhr',
+                      Asr:'Asr', Maghrib:'Maghrib', Isha:'Isha' };
+
+function loadVerify() {
+  try { return JSON.parse(localStorage.getItem('hd_verify') || '{}') || {}; }
+  catch(_) { return {}; }
+}
+function saveVerify(v) {
+  try { localStorage.setItem('hd_verify', JSON.stringify(v)); } catch(_) {}
+}
+
+async function maybeVerifyPrayerTimes(force) {
+  const v = loadVerify();
+  if (!cfg.scriptUrl) return;                       // needs the bridge
+  if (!Object.keys(prayerTimes).length) return;     // nothing to compare yet
+  if (prayerTimesStale) return;                     // comparing cached times is meaningless
+  if (!force && v.lastTry && Date.now() - Date.parse(v.lastTry) < VERIFY_INTERVAL_MS) return;
+
+  v.lastTry = new Date().toISOString();
+  try {
+    const res  = await fetch(cfg.scriptUrl + '?action=masjid&_=' + Date.now(), { cache: 'no-store' });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'verification failed');
+
+    // Refuse to compare against a page showing a different day — a cached or
+    // stale page would produce a fake mismatch of tens of minutes.
+    if (data.pageDate && new Date(data.pageDate).toDateString() !== new Date().toDateString()) {
+      throw new Error('page shows ' + data.pageDate + ', not today');
+    }
+
+    const diffs = {};
+    let worst = 0;
+    Object.keys(VERIFY_KEYS).forEach(k => {
+      const mine   = prayerTimes[VERIFY_KEYS[k]];
+      const theirs = data.times[k];
+      if (!mine || !theirs) return;
+      const d = Math.round((parseHHMM(theirs) - parseHHMM(mine)) / 60000);
+      diffs[k] = d;
+      if (Math.abs(d) > Math.abs(worst)) worst = d;
+    });
+
+    v.lastOk  = new Date().toISOString();
+    v.diffs   = diffs;
+    v.masjid  = data.times;
+    v.error   = null;
+    // Streak, not a single sample — see the note above about DST.
+    v.streak  = Math.abs(worst) >= VERIFY_TOLERANCE ? (v.streak || 0) + 1 : 0;
+    v.worst   = worst;
+    console.log('[verify] offsets vs masjid:', diffs, 'streak', v.streak);
+  } catch(e) {
+    v.error = String(e.message || e);
+    console.warn('[verify] could not verify:', v.error);
+  }
+  saveVerify(v);
+  renderVerifyState();
+}
+
+function daysSince(iso) {
+  if (!iso) return Infinity;
+  return (Date.now() - Date.parse(iso)) / 86400000;
+}
+
+function renderVerifyState() {
+  const host = document.querySelector('.prayer-card .clabel');
+  if (!host) return;
+  const old = host.querySelector('.verify-chip');
+  if (old) old.remove();
+  if (!cfg.scriptUrl) return;
+
+  const v = loadVerify();
+  const stale = daysSince(v.lastOk);
+  let cls = null, text = '';
+
+  // A confirmed mismatch outranks anything about verification age.
+  if ((v.streak || 0) >= 2) {
+    cls = 'verify-chip bad';
+    text = `times differ ${v.worst > 0 ? '+' : ''}${v.worst}m`;
+  } else if (stale === Infinity) {
+    // Never verified successfully. Stay silent on a fresh install — there must
+    // have been at least one *attempt* before claiming anything is unverified,
+    // otherwise the badge appears before the first check has had a chance.
+    const tried = daysSince(v.lastTry);
+    if (tried === Infinity || tried <= VERIFY_SOFT_DAYS) return;
+    cls = 'verify-chip warn';
+    text = 'never verified';
+  } else if (stale > VERIFY_LOUD_DAYS) {
+    cls = 'verify-chip warn';
+    text = `check unverified ${Math.round(stale / 7)}w`;
+  } else if (stale > VERIFY_SOFT_DAYS) {
+    cls = 'verify-chip soft';
+    text = `unverified ${Math.round(stale / 7)}w`;
+  } else {
+    return;   // recently verified and in agreement: show nothing
+  }
+
+  const chip = document.createElement('span');
+  chip.className = cls;
+  chip.textContent = text;
+  chip.title = 'Tap for the comparison against the masjid\'s published times';
+  chip.onclick = (ev) => { ev.stopPropagation(); showVerifyDetail(); };
+  host.insertBefore(chip, host.lastElementChild);
+}
+
+function showVerifyDetail() {
+  const v = loadVerify();
+  const rows = Object.keys(VERIFY_KEYS).map(k => {
+    const mine = prayerTimes[VERIFY_KEYS[k]] || '—';
+    const th   = (v.masjid && v.masjid[k]) || '—';
+    const d    = v.diffs && v.diffs[k] != null ? v.diffs[k] : null;
+    const off  = d === null ? '' : (d === 0 ? '0' : (d > 0 ? '+' : '') + d + 'm');
+    const hot  = d !== null && Math.abs(d) >= VERIFY_TOLERANCE;
+    return `<tr${hot ? ' class="vd-hot"' : ''}><td>${k}</td><td>${mine}</td><td>${th}</td><td>${off}</td></tr>`;
+  }).join('');
+
+  document.getElementById('vd-body').innerHTML = `
+    <table class="vd-table">
+      <thead><tr><th>Prayer</th><th>Dashboard</th><th>Masjid</th><th>Diff</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="vd-note">
+      ${v.lastOk ? 'Last verified ' + new Date(v.lastOk).toLocaleString() : 'Never verified successfully.'}
+      ${v.error ? '<br><span style="color:var(--coral)">Last attempt failed: ' + v.error + '</span>' : ''}
+      <br><br>Nothing is changed automatically. If a difference is real and persistent,
+      adjust it yourself in Settings → Fine-tune.
+    </div>`;
+  document.getElementById('vd-overlay').style.display = 'flex';
+}
+function closeVerifyDetail() { document.getElementById('vd-overlay').style.display = 'none'; }
+
+// ── Offline persistence ──
+function savePrayerCache(timings) {
+  try {
+    localStorage.setItem('hd_prayer_cache', JSON.stringify({
+      date: toDateStr(new Date()),
+      lat: cfg.lat, lon: cfg.lon, method: cfg.prayerMethod, tune: tuneParam(),
+      timings
+    }));
+  } catch(_) { /* storage full or blocked — not fatal */ }
+}
+
+function loadPrayerCache() {
+  try {
+    const c = JSON.parse(localStorage.getItem('hd_prayer_cache') || 'null');
+    if (!c || !c.timings) return null;
+    // Ignore a cache captured for a different place or calculation method —
+    // wrong times are worse than an honest error.
+    if (c.lat !== cfg.lat || c.lon !== cfg.lon ||
+        c.method !== cfg.prayerMethod || c.tune !== tuneParam()) return null;
+    return c;
+  } catch(_) { return null; }
+}
+
+function showStaleBadge(dateStr) {
+  const lbl = document.querySelector('.prayer-card .clabel');
+  if (!lbl || lbl.querySelector('.stale-badge')) return;
+  const b = document.createElement('span');
+  b.className = 'stale-badge';
+  b.textContent = 'offline · ' + dateStr;
+  b.title = 'Showing cached prayer times — could not reach the prayer times service.';
+  lbl.insertBefore(b, lbl.lastElementChild);
 }
 
 function getPrayerDate(timeStr) {
@@ -789,17 +1697,63 @@ function getPrayerDate(timeStr) {
   return parseHHMM(timeStr);
 }
 
+// A prayer's window runs from its own time until the NEXT entry's time — it is
+// not "past" the moment it starts. Returns one entry per row, in display order,
+// each tagged past | active | upcoming, plus the window bounds for the active one.
+//
+// Shuruq is included as a boundary because it genuinely ends the Fajr window,
+// but it is never itself "active" — the stretch between sunrise and Dhuhr is a
+// gap with no current prayer.
+function getPrayerStates() {
+  const now = Date.now();
+  const entries = PRAYER_DISPLAY
+    .filter(p => effectiveTime(p.key))
+    .map(p => ({
+      key: p.key, label: effectiveLabel(p.key, p.label), shuruq: p.shuruq,
+      timeStr: effectiveTime(p.key),
+      ms: parseHHMM(effectiveTime(p.key)).getTime()
+    }))
+    .sort((a, b) => a.ms - b.ms);
+
+  if (!entries.length) return { entries: [], activeIdx: -1, next: null };
+
+  let activeIdx = -1;
+  for (let i = 0; i < entries.length; i++) {
+    const start = entries[i].ms;
+    const end   = (i + 1 < entries.length) ? entries[i + 1].ms : Infinity;
+    if (now >= start && now < end) { activeIdx = i; break; }
+  }
+  // Before the day's first entry we are still inside yesterday's Isha window.
+  if (activeIdx === -1) activeIdx = entries.length - 1;
+
+  entries.forEach((e, i) => {
+    if (i < activeIdx)      e.state = 'past';
+    else if (i > activeIdx) e.state = 'upcoming';
+    else                    e.state = e.shuruq ? 'past' : 'active';
+  });
+
+  // The next entry to arrive; wraps to tomorrow's first when Isha is active.
+  const nextIdx = activeIdx + 1 < entries.length ? activeIdx + 1 : 0;
+  const next = entries[nextIdx];
+  const nextMs = nextIdx === 0 && activeIdx === entries.length - 1
+    ? next.ms + 86400000     // tomorrow's Fajr
+    : next.ms;
+
+  return { entries, activeIdx, next, nextMs, activeStartMs: entries[activeIdx].ms };
+}
+
 function getNextPrayer() {
   const now = new Date();
   const nowMs = now.getTime();
   // Build sorted list of {label, key, timeMs} excluding Shuruq
   const candidates = PRAYER_DISPLAY
-    .filter(p => !p.shuruq && prayerTimes[p.key])
+    .filter(p => !p.shuruq && effectiveTime(p.key))
     .map(p => {
-      let d = parseHHMM(prayerTimes[p.key]);
+      let d = parseHHMM(effectiveTime(p.key));
       // If this time has already passed today, project to tomorrow
       if (d.getTime() < nowMs) d = new Date(d.getTime() + 86400000);
-      return { label: p.label, key: p.key, timeMs: d.getTime(), timeStr: prayerTimes[p.key] };
+      return { label: effectiveLabel(p.key, p.label), key: p.key,
+               timeMs: d.getTime(), timeStr: effectiveTime(p.key) };
     });
   candidates.sort((a,b) => a.timeMs - b.timeMs);
   return candidates[0] || null;
@@ -810,36 +1764,56 @@ function updateNextPrayerCountdown() {
   const next = getNextPrayer();
   if (!next) return;
   const ms  = next.timeMs - Date.now();
-  const el  = document.getElementById('np-cd');
-  const blk = document.getElementById('next-prayer-block');
-  el.innerHTML = `<i class="ti ti-clock" style="font-size:12px;vertical-align:-1px"></i> ${fmtCountdown(ms)}`;
-  // Countdown text colour
-  el.className = ms < 5 * 60000 ? 'np-cd imminent' : ms < 15 * 60000 ? 'np-cd urgent' : 'np-cd';
-  // Block background urgency glow
-  if (blk) {
-    blk.classList.toggle('imminent-bg', ms < 5 * 60000);
-    blk.classList.toggle('urgent-bg',   ms >= 5 * 60000 && ms < 15 * 60000);
+  const cd = document.getElementById('p-countdown');
+  if (!cd) { renderPrayerTimes(); return; }   // window rolled over — re-render
+
+  const imminent = ms < 5 * 60000;
+  const urgent   = !imminent && ms < 15 * 60000;
+  cd.textContent = fmtCountdown(ms);   // fmtCountdown already prefixes "in "
+  cd.className = 'p-status next' + (imminent ? ' imminent' : urgent ? ' urgent' : '');
+
+  // Progress through the current window, drawn on the active column.
+  const st = getPrayerStates();
+  const bar = document.getElementById('prayer-list').querySelector('.p-active .p-prog');
+  if (bar && st.activeStartMs != null) {
+    const span = st.nextMs - st.activeStartMs;
+    const pct  = span > 0 ? Math.min(100, Math.max(0, ((Date.now() - st.activeStartMs) / span) * 100)) : 0;
+    bar.style.width = pct.toFixed(1) + '%';
   }
 }
 
 function renderPrayerTimes() {
-  const now = new Date();
-  const nowMs = now.getTime();
-  const next = getNextPrayer();
-
-  document.getElementById('np-name').textContent = next ? next.label : '—';
-  document.getElementById('np-time').textContent = next ? next.timeStr : '--:--';
-
+  const { entries, next, nextMs } = getPrayerStates();
   const listEl = document.getElementById('prayer-list');
+  if (!entries.length) return;
   listEl.innerHTML = '';
-  PRAYER_DISPLAY.forEach(p => {
-    const t = prayerTimes[p.key];
-    if (!t) return;
+
+  entries.forEach(e => {
     const row = document.createElement('div');
-    row.className = 'prayer-row' + (p.shuruq ? ' p-shuruq' : '');
-    const isNext = next && next.key === p.key && !p.shuruq;
-    if (isNext) row.classList.add('p-next');
-    row.innerHTML = `<span class="pn">${p.label}</span><span class="pt">${t}</span>`;
+    const isJumuah = e.key === 'Dhuhr' && jumuahActive();
+    row.className = 'prayer-row p-' + e.state + (e.shuruq ? ' p-shuruq' : '') + (isJumuah ? ' p-jumuah' : '');
+
+    // Shuruq is not a prayer, so it gets no adhan toggle.
+    const bell = e.shuruq ? '<span class="p-bell-spacer"></span>' :
+      `<button class="p-bell${adhanEnabledFor(e.key) ? '' : ' off'}"
+               onclick="event.stopPropagation();togglePrayerAdhan('${e.key}')"
+               title="${adhanEnabledFor(e.key) ? 'Adhan on' : 'Adhan off'} for ${e.label}"
+               aria-label="Adhan for ${e.label}: ${adhanEnabledFor(e.key) ? 'on' : 'off'}">
+         <i class="ti ti-${adhanEnabledFor(e.key) ? 'volume' : 'volume-off'}"></i>
+       </button>`;
+
+    // Status line carries the countdown, so no separate hero card is needed.
+    let status = '<span class="p-status"></span>';
+    if (e.state === 'active') {
+      status = '<span class="p-status now">NOW</span><span class="p-prog"></span>';
+    } else if (next && e.key === next.key && e.state === 'upcoming') {
+      status = `<span class="p-status next" id="p-countdown">${fmtCountdown(nextMs - Date.now())}</span>`;
+    }
+
+    row.innerHTML = `<span class="pn">${e.shuruq ? 'Shuruq' : e.label}</span>
+                     <span class="pt">${e.timeStr}</span>
+                     ${status}
+                     ${bell}`;
     listEl.appendChild(row);
   });
 }
@@ -861,34 +1835,46 @@ function unlockAudio() {
 
 function maybShowSoundOverlay() {
   // Only show if adhan is on AND user hasn't unlocked audio in a previous session
-  if (adhanOn && !localStorage.getItem('hd_audio_unlocked')) {
+  if (anyAdhanOn() && !localStorage.getItem('hd_audio_unlocked')) {
     document.getElementById('sound-overlay').classList.add('visible');
   }
 }
 
-function toggleAdhan() {
-  adhanOn = !adhanOn;
-  const b = document.getElementById('adhan-btn');
-  b.className = adhanOn ? 'tog-on' : 'tog-off';
-  b.innerHTML = adhanOn
-    ? '<i class="ti ti-volume"></i> Adhan on'
-    : '<i class="ti ti-volume-off"></i> Adhan off';
-  if (!adhanOn) silenceAdhan();
-}
-
-function playAdhan() {
-  if (!adhanOn || !audioUnlocked) return;
+function playAdhan(prayerKey) {
+  // Per-prayer gate: a prayer muted in the list never plays.
+  if (!adhanEnabledFor(prayerKey) || !audioUnlocked) return;
   silenceAdhan();
-  currentAdhan = new Audio(ADHAN_URL);
-  currentAdhan.play().catch(e => console.log('Adhan play failed', e));
+  currentAdhan = new Audio(adhanUrlFor(prayerKey));
+  // If the recording can't load or the browser blocks playback, fall back to the
+  // synthetic tone so the call is never silently missed.
+  currentAdhan.onerror = () => adhanFallback('recording unavailable');
+  currentAdhan.play().catch(e => {
+    console.warn('Adhan play failed', e);
+    adhanFallback('audio blocked by browser');
+  });
   document.getElementById('adhan-wave').style.display = 'flex';
   document.getElementById('silence-btn').style.display = 'inline-block';
   currentAdhan.addEventListener('ended', silenceAdhan);
 }
 
+// Shared failure path: beep instead of nothing, and say so on screen.
+function adhanFallback(reason) {
+  currentAdhan = null;
+  playTestTone();
+  const w = document.getElementById('adhan-wave');
+  if (w) {
+    w.style.display = 'flex';
+    w.style.color = 'var(--red)';
+    w.title = 'Adhan fallback: ' + reason;
+  }
+}
+
 function silenceAdhan() {
   if (currentAdhan) { currentAdhan.pause(); currentAdhan.currentTime = 0; currentAdhan = null; }
-  document.getElementById('adhan-wave').style.display = 'none';
+  const w = document.getElementById('adhan-wave');
+  w.style.display = 'none';
+  w.style.color = '';        // clear the red fallback state
+  w.title = '';
   document.getElementById('silence-btn').style.display = 'none';
 }
 
@@ -896,18 +1882,26 @@ async function demoAdhan() {
   if (!audioUnlocked) { document.getElementById('sound-overlay').classList.add('visible'); return; }
   silenceAdhan();
 
-  // Try CDN MP3 first; fall back to a synthetic tone if it fails (URL 404 / CORS)
-  const audio = new Audio(ADHAN_URL);
+  // Try the real recording first; fall back to a synthetic tone if it fails.
+  const url = adhanUrlFor(null);
+  const audio = new Audio(url);
+  audio.preload = 'auto';
   let mpgOk = false;
 
   try {
     await new Promise((resolve, reject) => {
-      audio.oncanplaythrough = resolve;
-      audio.onerror = reject;
-      setTimeout(reject, 4000); // give 4 s to load
+      // 'canplay' fires as soon as playback can start; 'canplaythrough' waits
+      // for the whole file to buffer, which a multi-MB adhan often can't do in
+      // time on a slow link — that made good recordings look broken.
+      audio.oncanplay = resolve;
+      audio.onerror = () => reject(new Error('load error'));
+      setTimeout(() => reject(new Error('timeout')), 15000);
+      audio.load();
     });
     mpgOk = true;
-  } catch(_) { /* fall through to tone */ }
+  } catch(err) {
+    console.warn('[adhan] demo could not load', url, err);
+  }
 
   if (mpgOk) {
     currentAdhan = audio;
@@ -917,7 +1911,9 @@ async function demoAdhan() {
     audio.addEventListener('ended', silenceAdhan);
     setTimeout(silenceAdhan, 10000);
   } else {
-    playTestTone();
+    adhanFallback('recording did not load in time');
+    alert('Could not load the adhan recording — played a fallback tone instead.\n\nTried: ' + url +
+          '\n\nTo use your own recording, put an "adhan.mp3" file next to index.html and reload.');
   }
 }
 
@@ -944,57 +1940,122 @@ function playTestTone() {
   } catch(e) { console.error('Tone play failed', e); }
 }
 
-function scheduleAdhans() {
-  // Clear existing timeouts
-  adhanTimeouts.forEach(t => clearTimeout(t));
-  adhanTimeouts = [];
+/**
+ * Adhan firing is driven by the 1s clock tick, not by setTimeout.
+ *
+ * The old approach set timers up to 24 hours ahead. Chrome throttles and can
+ * drop long timers in a backgrounded tab or while the device sleeps, so the
+ * failure mode was the adhan silently never playing — the worst possible
+ * outcome for the feature the dashboard exists to provide. It also projected
+ * a passed prayer to "tomorrow" using *today's* time, which is a few minutes
+ * off since prayer times shift daily.
+ *
+ * Checking elapsed wall-clock time each tick is immune to both: however long
+ * the tab was asleep, the next tick sees that the time has passed.
+ */
+const adhanFired = {};        // 'YYYY-MM-DD:Key' -> true, so each fires once
+let prayerTimesStale = false;
+
+function primeAdhanWatcher() {
+  // Mark everything already in the past as handled, so enabling a prayer or
+  // reloading mid-afternoon doesn't replay the morning's calls.
+  const today = toDateStr(new Date());
   const now = Date.now();
-  PRAYER_DISPLAY.filter(p => !p.shuruq && prayerTimes[p.key]).forEach(p => {
-    let d = parseHHMM(prayerTimes[p.key]);
-    // If already passed today, skip (will be rescheduled tomorrow via onDayChange)
-    let ms = d.getTime() - now;
-    if (ms < 0) ms += 86400000; // project to tomorrow
-    if (ms < 86400000) { // only schedule within next 24h
-      const id = setTimeout(playAdhan, ms);
-      adhanTimeouts.push(id);
-    }
+  PRAYER_DISPLAY.forEach(p => {
+    if (p.shuruq || !effectiveTime(p.key)) return;
+    const t = parseHHMM(effectiveTime(p.key));
+    if (t && t.getTime() <= now) adhanFired[`${today}:${p.key}`] = true;
   });
+}
+
+// Called from the clock tick.
+function checkAdhanDue() {
+  if (!Object.keys(prayerTimes).length) return;
+  const today = toDateStr(new Date());
+  const now = Date.now();
+
+  PRAYER_DISPLAY.forEach(p => {
+    if (p.shuruq || !effectiveTime(p.key)) return;
+    const key = `${today}:${p.key}`;
+    if (adhanFired[key]) return;
+    const t = parseHHMM(effectiveTime(p.key));
+    if (!t) return;
+    const elapsed = now - t.getTime();
+    if (elapsed < 0) return;                 // not yet
+    adhanFired[key] = true;                  // claim it before playing
+    // If we were asleep for a long time, the moment has genuinely passed —
+    // don't startle the house with an adhan an hour late.
+    if (elapsed > 5 * 60000) {
+      console.warn(`[adhan] ${p.key} was ${Math.round(elapsed / 60000)}min ago; not playing late`);
+      return;
+    }
+    playAdhan(p.key);
+  });
+
+  // Keep the map from growing without bound over months of uptime.
+  Object.keys(adhanFired).forEach(k => { if (!k.startsWith(today)) delete adhanFired[k]; });
 }
 
 // ═══════════════════════════════════════════════════════════════
 // WEATHER
 // ═══════════════════════════════════════════════════════════════
 const WMO_ICONS = {
-  0:  { icon: 'ti-sun',        color: '#f0b429', desc: 'Clear sky' },
-  1:  { icon: 'ti-cloud-sun',  color: '#f0b429', desc: 'Mainly clear' },
-  2:  { icon: 'ti-cloud-sun',  color: '#f0b429', desc: 'Partly cloudy' },
-  3:  { icon: 'ti-cloud',      color: '#8b949e', desc: 'Overcast' },
-  45: { icon: 'ti-cloud-fog',  color: '#8b949e', desc: 'Fog' },
-  48: { icon: 'ti-cloud-fog',  color: '#8b949e', desc: 'Icing fog' },
-  51: { icon: 'ti-cloud-rain', color: '#58a6ff', desc: 'Light drizzle' },
-  53: { icon: 'ti-cloud-rain', color: '#58a6ff', desc: 'Drizzle' },
-  55: { icon: 'ti-cloud-rain', color: '#58a6ff', desc: 'Heavy drizzle' },
-  61: { icon: 'ti-cloud-rain', color: '#58a6ff', desc: 'Slight rain' },
-  63: { icon: 'ti-cloud-rain', color: '#58a6ff', desc: 'Rain' },
-  65: { icon: 'ti-cloud-rain', color: '#58a6ff', desc: 'Heavy rain' },
-  66: { icon: 'ti-cloud-rain', color: '#58a6ff', desc: 'Freezing rain' },
-  67: { icon: 'ti-cloud-rain', color: '#58a6ff', desc: 'Freezing rain' },
-  71: { icon: 'ti-snowflake',  color: '#c9d1d9', desc: 'Slight snow' },
-  73: { icon: 'ti-snowflake',  color: '#c9d1d9', desc: 'Snow' },
-  75: { icon: 'ti-snowflake',  color: '#c9d1d9', desc: 'Heavy snow' },
-  77: { icon: 'ti-snowflake',  color: '#c9d1d9', desc: 'Snow grains' },
-  80: { icon: 'ti-cloud-rain', color: '#58a6ff', desc: 'Showers' },
-  81: { icon: 'ti-cloud-rain', color: '#58a6ff', desc: 'Showers' },
-  82: { icon: 'ti-cloud-rain', color: '#58a6ff', desc: 'Heavy showers' },
-  85: { icon: 'ti-snowflake',  color: '#c9d1d9', desc: 'Snow showers' },
-  86: { icon: 'ti-snowflake',  color: '#c9d1d9', desc: 'Heavy snow showers' },
-  95: { icon: 'ti-storm',      color: '#f0b429', desc: 'Thunderstorm' },
-  96: { icon: 'ti-storm',      color: '#f0b429', desc: 'Thunderstorm' },
-  99: { icon: 'ti-storm',      color: '#f0b429', desc: 'Thunderstorm' },
+  // NB: Tabler has no 'ti-cloud-sun' — it was rendering as a blank box for
+  // every partly-cloudy hour. 'ti-haze' is the closest glyph that exists.
+  0:  { icon: 'ti-sun',        color: 'var(--amber)', desc: 'Clear sky' },
+  1:  { icon: 'ti-haze',       color: 'var(--amber)', desc: 'Mainly clear' },
+  2:  { icon: 'ti-haze',       color: 'var(--amber)', desc: 'Partly cloudy' },
+  3:  { icon: 'ti-cloud',      color: 'var(--text-4)', desc: 'Overcast' },
+  45: { icon: 'ti-cloud-fog',  color: 'var(--text-4)', desc: 'Fog' },
+  48: { icon: 'ti-cloud-fog',  color: 'var(--text-4)', desc: 'Icing fog' },
+  51: { icon: 'ti-cloud-rain', color: 'var(--blue)', desc: 'Light drizzle' },
+  53: { icon: 'ti-cloud-rain', color: 'var(--blue)', desc: 'Drizzle' },
+  55: { icon: 'ti-cloud-rain', color: 'var(--blue)', desc: 'Heavy drizzle' },
+  61: { icon: 'ti-cloud-rain', color: 'var(--blue)', desc: 'Slight rain' },
+  63: { icon: 'ti-cloud-rain', color: 'var(--blue)', desc: 'Rain' },
+  65: { icon: 'ti-cloud-rain', color: 'var(--blue)', desc: 'Heavy rain' },
+  66: { icon: 'ti-cloud-rain', color: 'var(--blue)', desc: 'Freezing rain' },
+  67: { icon: 'ti-cloud-rain', color: 'var(--blue)', desc: 'Freezing rain' },
+  71: { icon: 'ti-snowflake',  color: 'var(--text-2)', desc: 'Slight snow' },
+  73: { icon: 'ti-snowflake',  color: 'var(--text-2)', desc: 'Snow' },
+  75: { icon: 'ti-snowflake',  color: 'var(--text-2)', desc: 'Heavy snow' },
+  77: { icon: 'ti-snowflake',  color: 'var(--text-2)', desc: 'Snow grains' },
+  80: { icon: 'ti-cloud-rain', color: 'var(--blue)', desc: 'Showers' },
+  81: { icon: 'ti-cloud-rain', color: 'var(--blue)', desc: 'Showers' },
+  82: { icon: 'ti-cloud-rain', color: 'var(--blue)', desc: 'Heavy showers' },
+  85: { icon: 'ti-snowflake',  color: 'var(--text-2)', desc: 'Snow showers' },
+  86: { icon: 'ti-snowflake',  color: 'var(--text-2)', desc: 'Heavy snow showers' },
+  95: { icon: 'ti-storm',      color: 'var(--amber)', desc: 'Thunderstorm' },
+  96: { icon: 'ti-storm',      color: 'var(--amber)', desc: 'Thunderstorm' },
+  99: { icon: 'ti-storm',      color: 'var(--amber)', desc: 'Thunderstorm' },
 };
 
-function getWMO(code) {
-  return WMO_ICONS[code] || WMO_ICONS[Math.floor(code/10)*10] || { icon:'ti-cloud', color:'#8b949e', desc:'Unknown' };
+// Clear/hazy conditions get a moon after dark — a blazing sun at 03:00 read as
+// a bug even when the forecast was right. Cloud and rain glyphs are unchanged.
+const NIGHT_SWAP = {
+  'ti-sun':  { icon: 'ti-moon',       color: 'var(--moon)' },
+  'ti-haze': { icon: 'ti-moon-stars', color: 'var(--moon)' },
+};
+
+function getWMO(code, when) {
+  const base = WMO_ICONS[code] || WMO_ICONS[Math.floor(code/10)*10]
+            || { icon:'ti-cloud', color:'var(--text-4)', desc:'Unknown' };
+  if (when && isNightAt(when) && NIGHT_SWAP[base.icon]) {
+    return Object.assign({}, base, NIGHT_SWAP[base.icon]);
+  }
+  return base;
+}
+
+// Uses the prayer-time sunrise/sunset we already fetch, so it stays correct
+// through Helsinki's very long summer days rather than assuming 6am–6pm.
+function isNightAt(date) {
+  const sunrise = prayerTimes.Sunrise ? parseHHMM(prayerTimes.Sunrise) : null;
+  const sunset  = prayerTimes.Maghrib ? parseHHMM(prayerTimes.Maghrib) : null;
+  if (!sunrise || !sunset) return false;
+  const mins = date.getHours() * 60 + date.getMinutes();
+  const rise = sunrise.getHours() * 60 + sunrise.getMinutes();
+  const set  = sunset.getHours()  * 60 + sunset.getMinutes();
+  return mins < rise || mins >= set;
 }
 
 async function fetchWeather() {
@@ -1014,7 +2075,7 @@ async function fetchWeather() {
 function renderWeather(d) {
   const cur  = d.current;
   const hrly = d.hourly;
-  const wmo  = getWMO(cur.weather_code);
+  const wmo  = getWMO(cur.weather_code, new Date());
   const temp = Math.round(cur.temperature_2m);
   const feel = Math.round(cur.apparent_temperature);
 
@@ -1028,7 +2089,7 @@ function renderWeather(d) {
     .filter(({dt}) => dt.getTime() > nowMs && dt.getHours() % 3 === 0)
     .slice(0, 4)
     .map(({dt, i}) => {
-      const slotWmo = getWMO(hrly.weather_code[i]);
+      const slotWmo = getWMO(hrly.weather_code[i], dt);
       const rain = hrly.precipitation_probability[i] ?? 0;
       const isTomorrow = dt.getDate() !== todayDate;
       return {
@@ -1042,28 +2103,31 @@ function renderWeather(d) {
       };
     });
 
-  const colsHtml = cols.map(c => c ? `
-    <div class="hcol">
-      ${c.label ? `<div style="font-size:9px;color:#58a6ff;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:2px">${c.label}</div>` : ''}
+  // Later columns are dropped first when text is enlarged (data-opt 4 then 5).
+  const colsHtml = cols.map((c, idx) => c ? `
+    <div class="hcol"${idx >= 2 ? ` data-opt="${idx + 3}"` : ''}>
+      <div class="hday" data-opt="2">${c.label || ''}</div>
       <div class="htime">${c.time}</div>
-      <i class="ti ${c.icon}" style="font-size:18px;color:${c.iconColor}"></i>
+      <i class="ti ${c.icon}" data-opt="7" style="font-size:calc(28px * var(--ui-scale,1));color:${c.iconColor}"></i>
       <div class="htemp">${c.temp}</div>
-      <div class="hmeta"><i class="ti ti-wind" style="font-size:10px"></i> ${c.wind}</div>
-      <div class="hmeta${c.rain >= 40 ? ' rain-hi' : ''}">${c.rain}% <i class="ti ti-droplet" style="font-size:9px"></i></div>
+      <div class="hmeta${c.rain >= 40 ? ' rain-hi' : ''}" data-opt="8">
+        <i class="ti ti-droplet" style="font-size:14px"></i> ${c.rain}%${c.rain >= 40 ? ' ▲' : ''}
+      </div>
     </div>` : '<div class="hcol"></div>').join('');
 
   document.getElementById('weather-content').innerHTML = `
     <div class="wtop">
-      <i class="ti ${wmo.icon}" style="font-size:44px;color:${wmo.color}"></i>
+      <i class="ti ${wmo.icon}" style="font-size:64px;color:${wmo.color}"></i>
       <div>
-        <div style="display:flex;align-items:baseline;gap:6px">
+        <div style="display:flex;align-items:baseline;gap:8px">
           <span class="wtemp-big">${temp}</span><span class="wunit">°C</span>
-          <span style="font-size:20px;color:#8b949e;font-weight:400">/ ${feel}°</span>
+          <span style="font-size:34px;color:var(--text-3);font-weight:400">/ ${feel}°</span>
         </div>
-        <div class="wdesc">${wmo.desc} · feels like</div>
+        <div class="wdesc" data-opt="1">${wmo.desc} · feels like</div>
       </div>
     </div>
     <div class="hgrid">${colsHtml}</div>`;
+  fitToScale();   // re-apply column trimming after the grid is rebuilt
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1078,13 +2142,27 @@ function setNightModeUI(val) {
 }
 function setNightMode(val) { setNightModeUI(val); localStorage.setItem('hd_night_mode', val); }
 
+let nightDriftTimer = null;
+
 function activateNight() {
   nightActive = true;
   const el = document.getElementById('dim-block');
   el.style.display = 'flex';
   requestAnimationFrame(() => el.classList.add('visible'));
-  document.getElementById('night-btn').className = 'top-btn night-active';
-  document.getElementById('night-btn').innerHTML = '<i class="ti ti-sun"></i> Wake';
+  const btn = document.getElementById('night-btn');
+  btn.className = 'fab night-active';
+  btn.innerHTML = '<i class="ti ti-sun"></i>';
+  // Wander the dim clock around the panel so it can't burn in over months.
+  driftNightClock();
+  nightDriftTimer = setInterval(driftNightClock, 60000);
+}
+
+function driftNightClock() {
+  const inner = document.getElementById('dim-inner');
+  if (!inner) return;
+  const x = Math.round((Math.random() * 2 - 1) * 160);
+  const y = Math.round((Math.random() * 2 - 1) * 120);
+  inner.style.transform = `translate(${x}px, ${y}px)`;
 }
 
 function deactivateNight() {
@@ -1092,8 +2170,22 @@ function deactivateNight() {
   const el = document.getElementById('dim-block');
   el.classList.remove('visible');
   setTimeout(() => { el.style.display = 'none'; }, 800);
-  document.getElementById('night-btn').className = 'top-btn';
-  document.getElementById('night-btn').innerHTML = '<i class="ti ti-moon"></i> Night mode';
+  clearInterval(nightDriftTimer);
+  const btn = document.getElementById('night-btn');
+  btn.className = 'fab';
+  btn.innerHTML = '<i class="ti ti-moon"></i>';
+}
+
+// Whole-surface drift. 3px is invisible to the eye at 2m but enough to stop
+// static elements (card borders, labels) etching into an always-on panel.
+function startPixelShift() {
+  const db = document.getElementById('db');
+  if (!db) return;
+  setInterval(() => {
+    const x = Math.round((Math.random() * 2 - 1) * 3);
+    const y = Math.round((Math.random() * 2 - 1) * 3);
+    db.style.transform = `translate(${x}px, ${y}px)`;
+  }, 90000);
 }
 
 function wakeFromNight() {
@@ -1130,19 +2222,88 @@ function scheduleNightMode() {
 // CALENDAR
 // ═══════════════════════════════════════════════════════════════
 async function fetchCalendar() {
+  // Preferred path: our own Apps Script bridge. Live data, no third-party
+  // proxy, and the same endpoint can create events.
+  if (cfg.scriptUrl) {
+    try {
+      const res  = await fetch(cfg.scriptUrl + '?action=list&days=90&_=' + Date.now(),
+                               { cache: 'no-store', redirect: 'follow' });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'bridge returned an error');
+      loadEventsFromBridge(data.events);
+      lastCalSync = new Date();
+      updateCalSyncLabel();
+      return;
+    } catch(e) {
+      console.error('Calendar bridge failed, falling back to iCal', e);
+      // fall through to the iCal path below
+    }
+  }
+
   if (!cfg.icalUrl) {
     renderCalendarCard([]);
     return;
   }
   try {
-    const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(cfg.icalUrl);
-    const res = await fetch(proxyUrl);
+    // Cache-bust: without a unique param the CORS proxy (and any intermediate
+    // cache) can keep serving a stale copy of the feed for hours.
+    const bust = (cfg.icalUrl.includes('?') ? '&' : '?') + '_hd=' + Date.now();
+    const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(cfg.icalUrl + bust);
+    const res  = await fetch(proxyUrl, { cache: 'no-store' });
     const text = await res.text();
     parseIcal(text);
+    lastCalSync = new Date();
+    updateCalSyncLabel();
   } catch(e) {
     console.error('Calendar fetch failed', e);
     renderCalendarCard([]);
   }
+}
+
+let lastCalSync = null;
+
+function updateCalSyncLabel() {
+  const el = document.getElementById('cal-sync');
+  if (!el) return;
+  if (!lastCalSync) { el.textContent = ''; return; }
+  const mins = Math.floor((Date.now() - lastCalSync.getTime()) / 60000);
+  el.textContent = mins < 1 ? 'just now' : mins + 'm ago';
+}
+
+// Manual pull, for when you've just added something and don't want to wait.
+async function refreshCalendarNow() {
+  const el = document.getElementById('cal-sync');
+  if (el) el.textContent = 'syncing…';
+  await fetchCalendar();
+}
+
+// Same output shape as parseIcal(), so everything downstream is unchanged.
+function loadEventsFromBridge(list) {
+  calEvents = {};
+  (list || []).forEach((e, idx) => {
+    const start = new Date(e.start);
+    const end   = e.end ? new Date(e.end) : null;
+    const color = EVENT_COLORS[idx % EVENT_COLORS.length];
+
+    let cursor = new Date(start); cursor.setHours(0,0,0,0);
+    const endDay = new Date(end || start); endDay.setHours(0,0,0,0);
+    // All-day events end at midnight of the following day; don't spill over.
+    if (e.allDay && end) endDay.setDate(endDay.getDate() - 1);
+
+    while (cursor <= endDay) {
+      const ds = toDateStr(cursor);
+      (calEvents[ds] = calEvents[ds] || []).push({
+        id: e.id,
+        title: e.title,
+        color,
+        allDay: e.allDay,
+        timeStr: e.allDay ? 'All day' : (pad(start.getHours()) + ':' + pad(start.getMinutes())),
+        start, end
+      });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  });
+  renderCalendarCard(calEvents);
 }
 
 function parseIcal(text) {
@@ -1199,11 +2360,11 @@ function renderCalendarCard(events) {
   const todayEvts = (events[today] || []);
   const todayEl   = document.getElementById('today-evts');
 
-  if (!cfg.icalUrl) {
+  if (!cfg.icalUrl && !cfg.scriptUrl) {
     todayEl.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px;padding:4px 0">
-      <i class="ti ti-calendar-plus" style="font-size:24px;color:#30363d"></i>
-      <span style="font-size:13px;color:#8b949e">No calendar connected</span>
-      <button onclick="openSettings()" style="background:rgba(88,166,255,0.1);border:0.5px solid #58a6ff;border-radius:6px;color:#58a6ff;font-size:12px;padding:8px 14px;cursor:pointer;font-family:inherit;width:fit-content">
+      <i class="ti ti-calendar-plus" style="font-size:24px;color:var(--border-2)"></i>
+      <span style="font-size:13px;color:var(--text-4)">No calendar connected</span>
+      <button onclick="openSettings()" style="background:var(--tint-blue-soft);border:0.5px solid var(--blue);border-radius:6px;color:var(--blue);font-size:12px;padding:8px 14px;cursor:pointer;font-family:inherit;width:fit-content">
         <i class="ti ti-settings" style="vertical-align:-2px;margin-right:5px"></i>Open Settings →
       </button>
     </div>`;
@@ -1213,10 +2374,10 @@ function renderCalendarCard(events) {
   }
 
   if (todayEvts.length === 0) {
-    todayEl.innerHTML = '<div style="font-size:11px;color:#484f58;font-style:italic;padding:4px 0">No events today</div>';
+    todayEl.innerHTML = '<div style="font-size:18px;color:var(--text-4);font-style:italic;padding:4px 0">Nothing today</div>';
   } else {
     const nowMs = now.getTime();
-    todayEl.innerHTML = todayEvts.slice(0,4).map(ev => {
+    todayEl.innerHTML = todayEvts.slice(0,6).map((ev, i) => {
       let cls = '';
       if (!ev.allDay) {
         const startMs = ev.start.getTime();
@@ -1225,7 +2386,7 @@ function renderCalendarCard(events) {
         else if (nowMs >= startMs) cls = ' current';
       }
       const nowBadge = cls === ' current' ? '<span class="now-badge">NOW</span>' : '';
-      return `<div class="today-evt${cls}">
+      return `<div class="today-evt${cls} evt-tap" onclick="editEventAt('${today}',${i})">
         <div class="evt-time">${ev.timeStr} ${nowBadge}</div>
         <div class="evt-title">${ev.title}</div>
       </div>`;
@@ -1237,15 +2398,15 @@ function renderCalendarCard(events) {
   const futureKeys = Object.keys(events)
     .filter(ds => ds > today)
     .sort()
-    .slice(0, 6);
+    .slice(0, 14);   // full-height rail scrolls, so show a real planning horizon
   if (futureKeys.length === 0) {
     upEl.innerHTML = '<div class="loading-text">No upcoming events</div>';
   } else {
     upEl.innerHTML = futureKeys.flatMap(ds => {
       const d = new Date(ds + 'T00:00:00');
       const lbl = DAYS[d.getDay()].slice(0,3) + ' ' + d.getDate() + ' ' + MONTHS_SHORT[d.getMonth()];
-      return events[ds].slice(0,2).map(ev => `
-        <div class="upco">
+      return events[ds].slice(0,2).map((ev, i) => `
+        <div class="upco evt-tap" onclick="editEventAt('${ds}',${i})">
           <div class="udot" style="background:${ev.color}"></div>
           <div>
             <div class="umeta">${lbl}${ev.allDay ? '' : ' · ' + ev.timeStr}</div>
@@ -1256,6 +2417,100 @@ function renderCalendarCard(events) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// MONTHLY PRAYER TIMETABLE
+// ═══════════════════════════════════════════════════════════════
+let pmYear, pmMonth;                 // month currently on screen (month is 1-12)
+const pmCache = {};                  // 'YYYY-M' -> Aladhan day array
+
+function openPrayerMonth() {
+  const now = new Date();
+  pmYear = now.getFullYear();
+  pmMonth = now.getMonth() + 1;
+  document.getElementById('pm-overlay').style.display = 'flex';
+  loadPrayerMonth();
+}
+
+function closePrayerMonth() {
+  document.getElementById('pm-overlay').style.display = 'none';
+}
+
+function stepPrayerMonth(delta) {
+  pmMonth += delta;
+  if (pmMonth < 1)  { pmMonth = 12; pmYear--; }
+  if (pmMonth > 12) { pmMonth = 1;  pmYear++; }
+  loadPrayerMonth();
+}
+
+async function loadPrayerMonth() {
+  const key = `${pmYear}-${pmMonth}`;
+  document.getElementById('pm-title').textContent = `${MONTHS[pmMonth - 1]} ${pmYear}`;
+
+  if (pmCache[key]) { renderPrayerMonth(pmCache[key]); return; }
+  document.getElementById('pm-body').innerHTML = '<div class="loading-text" style="padding:20px">Loading…</div>';
+
+  // Same method and tune as the daily view, so the month agrees with the strip.
+  const url = `https://api.aladhan.com/v1/calendar/${pmYear}/${pmMonth}`
+            + `?latitude=${cfg.lat}&longitude=${cfg.lon}`
+            + `&method=${cfg.prayerMethod}&tune=${tuneParam()}`;
+  try {
+    const res  = await fetch(url);
+    const json = await res.json();
+    if (!json.data) throw new Error('no data');
+    pmCache[key] = json.data;
+    renderPrayerMonth(json.data);
+  } catch(e) {
+    console.error('Prayer month fetch failed', e);
+    document.getElementById('pm-body').innerHTML =
+      '<div class="error-text" style="padding:20px"><i class="ti ti-wifi-off"></i> Could not load this month.</div>';
+  }
+}
+
+function renderPrayerMonth(days) {
+  const todayStr = toDateStr(new Date());
+  // Aladhan returns times as "03:09 (EEST)" — strip the timezone suffix.
+  const clean = t => (t || '').split(' ')[0];
+
+  const rows = days.map(d => {
+    const g = d.date.gregorian;
+    const iso = `${g.year}-${pad(Number(g.month.number))}-${pad(Number(g.day))}`;
+    const dow = g.weekday.en.slice(0, 3);
+    const isFriday = g.weekday.en === 'Friday';
+    const cls = (iso === todayStr ? ' pm-today' : '') + (isFriday ? ' pm-fri' : '');
+    const t = d.timings;
+    // Fridays show the masjid's Jumu'ah time in the Dhuhr column, matching the
+    // main strip. Aladhan has no Jumu'ah field — it's a local setting.
+    const showJumuah = isFriday && cfg.jumuahEnabled && cfg.jumuahTime;
+    const dhuhrCell = showJumuah
+      ? `<td class="pm-jumuah" title="Jumu'ah — Dhuhr would be ${clean(t.Dhuhr)}">${cfg.jumuahTime}</td>`
+      : `<td>${clean(t.Dhuhr)}</td>`;
+
+    return `<tr class="${cls.trim()}">
+      <td>${dow} ${Number(g.day)}${showJumuah ? ' · Jumu\'ah' : ''}</td>
+      <td>${clean(t.Fajr)}</td>
+      <td class="pm-shuruq">${clean(t.Sunrise)}</td>
+      ${dhuhrCell}
+      <td>${clean(t.Asr)}</td>
+      <td>${clean(t.Maghrib)}</td>
+      <td>${clean(t.Isha)}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('pm-body').innerHTML = `
+    <table class="pm-table">
+      <thead><tr>
+        <th>Day</th><th>Fajr</th><th>Shuruq</th><th>Dhuhr</th><th>Asr</th><th>Maghrib</th><th>Isha</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+
+  // Bring today into view rather than making them scroll to find it.
+  afterLayout(() => {
+    const row = document.querySelector('.pm-today');
+    if (row) row.scrollIntoView({ block: 'center' });
+  });
+}
+
 // ── Calendar modal ──
 function openCalendar() {
   const now = new Date();
@@ -1264,6 +2519,134 @@ function openCalendar() {
   document.getElementById('cal-overlay').style.display = 'flex';
 }
 function closeCalendar() { document.getElementById('cal-overlay').style.display = 'none'; }
+
+// Opens the in-app composer when the Apps Script bridge is configured. Without
+// it we can only hand off to Google, because an iCal feed is read-only.
+function addCalendarEvent() {
+  if (!cfg.scriptUrl) {
+    const d = calSelDate ? new Date(calSelDate + 'T00:00:00') : new Date();
+    const start = new Date(d);
+    start.setHours(new Date().getHours() + 1, 0, 0, 0);
+    const end = new Date(start.getTime() + 3600000);
+    const fmt = t => t.getFullYear() + pad(t.getMonth() + 1) + pad(t.getDate())
+                   + 'T' + pad(t.getHours()) + pad(t.getMinutes()) + '00';
+    window.open('https://calendar.google.com/calendar/render?action=TEMPLATE'
+      + '&dates=' + fmt(start) + '/' + fmt(end)
+      + '&ctz=' + encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone),
+      '_blank', 'noopener');
+    return;
+  }
+  openEventComposer();
+}
+
+let editingEvent = null;   // null = creating, otherwise the event being edited
+
+function openEventComposer(existing) {
+  editingEvent = existing || null;
+
+  let start, dur = 60, title = '', allDay = false;
+  if (existing) {
+    start  = new Date(existing.start);
+    allDay = !!existing.allDay;
+    title  = existing.title;
+    if (existing.end && !allDay) dur = Math.max(15, Math.round((new Date(existing.end) - start) / 60000));
+  } else {
+    start = calSelDate ? new Date(calSelDate + 'T00:00:00') : new Date();
+    start.setHours(new Date().getHours() + 1, 0, 0, 0);
+  }
+
+  document.getElementById('ev-modal-title').textContent = existing ? 'Edit event' : 'New event';
+  document.getElementById('ev-title').value = title;
+  document.getElementById('ev-date').value  = toDateStr(start);
+  document.getElementById('ev-time').value  = pad(start.getHours()) + ':' + pad(start.getMinutes());
+  document.getElementById('ev-dur').value   = String(dur);
+  document.getElementById('ev-allday').checked = allDay;
+  document.getElementById('ev-msg').textContent = '';
+  document.getElementById('ev-save').textContent = existing ? 'Save changes' : 'Add to calendar';
+  // Delete only makes sense for an existing event, and only the bridge can do it.
+  document.getElementById('ev-delete').style.display = existing && existing.id ? 'inline-flex' : 'none';
+  document.getElementById('ev-overlay').style.display = 'flex';
+  setTimeout(() => document.getElementById('ev-title').focus(), 50);
+}
+
+function closeEventComposer() {
+  document.getElementById('ev-overlay').style.display = 'none';
+  editingEvent = null;
+}
+
+// Tapping an event row opens it for editing. Needs the bridge — an iCal feed is
+// read-only, so there is nothing to save back to.
+function editEventAt(dateStr, idx) {
+  const ev = (calEvents[dateStr] || [])[idx];
+  if (!ev) return;
+  if (!cfg.scriptUrl) {
+    alert('Editing needs the Calendar bridge.\n\nAdd the Apps Script URL in Settings to edit or delete events from here.');
+    return;
+  }
+  openEventComposer(ev);
+}
+
+async function deleteCurrentEvent() {
+  if (!editingEvent || !editingEvent.id) return;
+  const msg = document.getElementById('ev-msg');
+  if (!confirm(`Delete "${editingEvent.title}"?\n\nThis removes it from the family calendar for everyone.`)) return;
+  msg.textContent = 'Deleting…';
+  try {
+    await bridgePost({ action: 'delete', id: editingEvent.id });
+    closeEventComposer();
+    await fetchCalendar();
+  } catch(e) {
+    console.error('Delete failed', e);
+    msg.textContent = 'Could not delete: ' + e.message;
+  }
+}
+
+// Shared POST helper. text/plain keeps this a "simple" CORS request so the
+// browser skips the preflight, which Apps Script web apps can't answer.
+async function bridgePost(payload) {
+  const res  = await fetch(cfg.scriptUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'unknown error');
+  return data;
+}
+
+async function saveNewEvent() {
+  const title  = document.getElementById('ev-title').value.trim();
+  const date   = document.getElementById('ev-date').value;
+  const time   = document.getElementById('ev-time').value || '09:00';
+  const dur    = parseInt(document.getElementById('ev-dur').value, 10) || 60;
+  const allDay = document.getElementById('ev-allday').checked;
+  const msg    = document.getElementById('ev-msg');
+  const btn    = document.getElementById('ev-save');
+
+  if (!title) { msg.textContent = 'Give the event a title.'; return; }
+  if (!date)  { msg.textContent = 'Pick a date.'; return; }
+
+  const start = new Date(date + 'T' + (allDay ? '00:00' : time) + ':00');
+  const end   = new Date(start.getTime() + dur * 60000);
+
+  btn.disabled = true;
+  msg.textContent = 'Saving…';
+  try {
+    await bridgePost({
+      action: editingEvent ? 'update' : 'create',
+      id: editingEvent ? editingEvent.id : undefined,
+      title, allDay,
+      start: start.toISOString(), end: end.toISOString()
+    });
+    closeEventComposer();
+    await fetchCalendar();          // reflect it immediately
+  } catch(e) {
+    console.error('Save event failed', e);
+    msg.textContent = 'Could not save: ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
 function prevMonth() { calMonth--; if (calMonth<0) { calMonth=11; calYear--; } renderCalendarModal(); }
 function nextMonth() { calMonth++; if (calMonth>11) { calMonth=0;  calYear++; } renderCalendarModal(); }
 
@@ -1295,13 +2678,13 @@ function renderCalendarModal() {
         const evts  = calEvents[ds] || [];
         const wrap  = document.createElement('div');
         let ws = 'display:inline-flex;flex-direction:column;align-items:center;padding:4px 6px;border-radius:8px;min-width:30px;cursor:pointer;';
-        if (isSel) ws += 'background:#58a6ff;';
-        else if (isTod) ws += 'border:0.5px solid rgba(88,166,255,0.35);background:rgba(88,166,255,0.08);';
+        if (isSel) ws += 'background:var(--blue);';
+        else if (isTod) ws += 'border:0.5px solid var(--edge-blue);background:var(--tint-blue-soft);';
         wrap.style.cssText = ws;
         const num = document.createElement('span');
         num.textContent = cell.d;
         num.style.cssText = 'font-size:12px;font-family:system-ui;';
-        num.style.color = isSel ? '#0d1117' : isTod ? '#58a6ff' : '#c9d1d9';
+        num.style.color = isSel ? 'var(--bg-deep)' : isTod ? 'var(--blue)' : 'var(--text-2)';
         if (isSel) num.style.fontWeight = '600';
         wrap.appendChild(num);
         if (evts.length) {
@@ -1309,7 +2692,7 @@ function renderCalendarModal() {
           dots.style.cssText = 'display:flex;gap:2px;margin-top:3px;';
           evts.slice(0,3).forEach(e => {
             const dot = document.createElement('span');
-            dot.style.cssText = `width:4px;height:4px;border-radius:50%;background:${isSel?'rgba(13,17,23,0.5)':e.color};display:inline-block;`;
+            dot.style.cssText = `width:4px;height:4px;border-radius:50%;background:${isSel?'var(--scrim-solid)':e.color};display:inline-block;`;
             dots.appendChild(dot);
           });
           wrap.appendChild(dots);
@@ -1317,7 +2700,7 @@ function renderCalendarModal() {
         td.appendChild(wrap);
         td.onclick = () => { calSelDate = ds; renderCalendarModal(); renderCalendarEvents(ds); };
       } else {
-        td.innerHTML = `<span style="font-size:12px;color:#2d333b;font-family:system-ui;">${cell.d}</span>`;
+        td.innerHTML = `<span style="font-size:15px;color:var(--text-5);font-family:system-ui;">${cell.d}</span>`;
       }
       tr.appendChild(td);
     }
@@ -1327,20 +2710,20 @@ function renderCalendarModal() {
 
 function renderCalendarEvents(ds) {
   const panel = document.getElementById('cal-events-panel');
-  if (!ds) { panel.innerHTML = '<div style="font-size:11px;color:#8b949e;padding-top:6px;">Select a date</div>'; return; }
+  if (!ds) { panel.innerHTML = '<div style="font-size:11px;color:var(--text-4);padding-top:6px;">Select a date</div>'; return; }
   const d = new Date(ds + 'T00:00:00');
   const lbl = DAYS[d.getDay()] + ', ' + d.getDate() + ' ' + MONTHS_SHORT[d.getMonth()] + ' ' + calYear;
   const evts = calEvents[ds] || [];
-  let html = `<div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#8b949e;margin-bottom:10px;">${lbl}</div>`;
+  let html = `<div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-4);margin-bottom:10px;">${lbl}</div>`;
   if (evts.length) {
     evts.forEach(e => {
-      html += `<div style="background:#1c2128;border:0.5px solid #30363d;border-left:3px solid ${e.color};border-radius:7px;padding:8px 12px;margin-bottom:7px;">
-        <div style="font-size:10px;color:#8b949e;margin-bottom:3px;">${e.timeStr}</div>
-        <div style="font-size:13px;color:#e6edf3;">${e.title}</div>
+      html += `<div style="background:var(--surface);border:0.5px solid var(--border-2);border-left:3px solid ${e.color};border-radius:7px;padding:8px 12px;margin-bottom:7px;">
+        <div style="font-size:10px;color:var(--text-4);margin-bottom:3px;">${e.timeStr}</div>
+        <div style="font-size:13px;color:var(--text);">${e.title}</div>
       </div>`;
     });
   } else {
-    html += '<div style="font-size:11px;color:#8b949e;padding:4px 0;"><i class="ti ti-calendar-off" style="vertical-align:-2px;margin-right:5px"></i>No events</div>';
+    html += '<div style="font-size:11px;color:var(--text-4);padding:4px 0;"><i class="ti ti-calendar-off" style="vertical-align:-2px;margin-right:5px"></i>No events</div>';
   }
   panel.innerHTML = html;
 }
@@ -1373,6 +2756,10 @@ document.addEventListener('DOMContentLoaded', () => {
   setClockModeUI(cfg.clockMode);
   setNightModeUI(cfg.nightMode);
 
+  // Prefer a local adhan.mp3 / adhan-fajr.mp3 if the user supplied one
+  detectLocalAdhans();
+  loadAdhanPrefs();
+
   // Restore audio unlock state from previous session
   if (localStorage.getItem('hd_audio_unlocked')) audioUnlocked = true;
   // Show sound unlock overlay only when needed
@@ -1390,7 +2777,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Refresh weather every 30min
   setInterval(fetchWeather, 30 * 60 * 1000);
   // Refresh calendar every 60min
-  setInterval(fetchCalendar, 60 * 60 * 1000);
+  setInterval(fetchCalendar, 15 * 60 * 1000);   // was hourly — too slow to notice new events
+  setInterval(updateCalSyncLabel, 60 * 1000);
+  startPixelShift();
+  watchLayout();
 
   // Wake lock
   requestWakeLock();
