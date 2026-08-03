@@ -262,7 +262,7 @@
     /* This card is the tightest on the board: the standard 44px header button
        plus a 10px margin left the columns 5px short and they clipped. The month
        button is a rarely-used secondary control, so it gets a smaller target. */
-    .prayer-card .clabel { margin-bottom: 2px; }
+    .prayer-card .clabel { margin-bottom: 2px; min-height: 34px; }
     .prayer-card .clabel .ibtn { min-height: 34px; padding: 4px 10px; }
     .prayer-list {
       display: grid;
@@ -287,7 +287,10 @@
     /* The strip caps out at 1.12: six columns each carrying name + time +
        countdown + toggle simply cannot grow further inside this row, and past
        that point the countdown was clipping. XL still enlarges everything else. */
-    .prayer-list { --strip: min(var(--ui-scale, 1), 1.12); }
+    /* Capped at 1.06, not 1.12: six times across ~120px columns start touching
+       horizontally before they overflow vertically, and the height-based check
+       can't see that. Default (1.0) is unaffected. */
+    .prayer-list { --strip: min(var(--ui-scale, 1), 1.06); }
     /* text-3 rather than text-4: at 17px these labels sit below the 18.66px
        large-text threshold, so they need the full 4.5:1 and text-4 measured
        4.2–4.3 in both themes. */
@@ -351,50 +354,32 @@
     }
     .p-bell.off { color: var(--text-6); }
     .p-bell:active { background: var(--tint-press); }
-    .adhan-row { margin-top: 8px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; flex-shrink: 0; }
-    .tog-on {
-      background: var(--tint-green);
-      border: 0.5px solid var(--green);
-      border-radius: 20px;
-      color: var(--green);
-      font-size: calc(11px * var(--ui-scale, 1));
-      padding: 10px 14px;
-      cursor: pointer;
-      font-family: inherit;
-      min-height: 44px;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
+    /* Sits inside the card header and adds no height of its own — margin-left
+       auto pushes it to the right, ahead of the month button. */
+    .adhan-row { display: flex; gap: 6px; align-items: center; margin-left: auto; }
+    /* Icon-only: "Playing…" and "Silence" as words ate the width the strip needed. */
+    .adhan-wave {
+      display: none; align-items: center; justify-content: center;
+      width: 30px; height: 30px; border-radius: 8px;
+      font-size: calc(16px * var(--ui-scale, 1));
+      color: var(--amber); background: var(--tint-amber);
+      animation: adhan-pulse 1.6s ease-in-out infinite;
     }
-    .tog-off {
-      background: var(--border);
-      border: 0.5px solid var(--border-2);
-      border-radius: 20px;
-      color: var(--text-4);
-      font-size: calc(11px * var(--ui-scale, 1));
-      padding: 10px 14px;
-      cursor: pointer;
-      font-family: inherit;
-      min-height: 44px;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-    }
+    @keyframes adhan-pulse { 0%,100% { opacity: 1 } 50% { opacity: 0.45 } }
     .silence-btn {
       display: none;
       background: var(--tint-coral);
-      border: 0.5px solid var(--coral);
-      border-radius: 20px;
+      border: 1px solid var(--coral);
+      border-radius: 8px;
       color: var(--coral);
-      font-size: calc(11px * var(--ui-scale, 1));
-      padding: 10px 14px;
+      font-size: calc(17px * var(--ui-scale, 1));
+      width: 44px; height: 34px;
+      padding: 0;
       cursor: pointer;
       font-family: inherit;
-      min-height: 44px;
       align-items: center;
-      gap: 5px;
+      justify-content: center;
     }
-    .adhan-wave { display: none; font-size: calc(11px * var(--ui-scale, 1)); color: var(--amber); align-items: center; gap: 4px; }
 
     /* ── Weather ── */
     .wtop { display: flex; align-items: center; gap: 16px; margin-bottom: 10px; flex-shrink: 0; }
@@ -449,6 +434,9 @@
     .today-evt.past .evt-title { text-decoration: line-through; text-decoration-color: var(--text-6); }
     .evt-time { font-size: calc(16px * var(--ui-scale, 1)); color: var(--text-3); margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
     .evt-title { font-size: calc(22px * var(--ui-scale, 1)); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .evt-loc { font-size: calc(15px * var(--ui-scale, 1)); color: var(--text-4); margin-top: 3px;
+               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .evt-noteflag { font-size: calc(15px * var(--ui-scale, 1)); color: var(--text-5); }
     .now-badge { background: var(--blue); color: var(--bg-deep); font-size: calc(12px * var(--ui-scale, 1)); font-weight: 700; border-radius: 4px; padding: 2px 7px; }
     .upco { display: flex; align-items: flex-start; gap: 9px; padding: 7px 0; border-bottom: 1px solid var(--border); }
     .upco:last-of-type { border-bottom: none; }
@@ -554,7 +542,12 @@
                 color:var(--text-2); min-height:44px; cursor:pointer; }
     .ev-check input { width:22px; height:22px; }
     .ev-msg { font-size:calc(16px * var(--ui-scale,1)); color:var(--coral); min-height:20px; }
-    .ev-modal .s-save-btn { font-size:calc(18px * var(--ui-scale,1)); padding:14px 0; }
+    /* .s-save-btn carries width:100% for the settings panel, which broke this
+       flex row — the buttons each demanded full width and spilled out. */
+    .ev-modal .s-save-btn { font-size:calc(18px * var(--ui-scale,1)); padding:14px 8px; width:auto; min-width:0; }
+    .ev-actions { display:flex; gap:10px; margin-top:4px; align-items:stretch; }
+    .ev-actions .ev-del { flex:0 0 56px; }
+    .ev-actions .ev-cancel, .ev-actions .ev-ok { flex:1 1 0; min-width:0; }
     .ev-modal .s-lbl { font-size:calc(13px * var(--ui-scale,1)); }
 
     /* ── Sound unlock overlay ── */
@@ -636,20 +629,22 @@
     <div class="card prayer-card">
       <div class="clabel">
         Prayer times
+        <!-- Playing indicator lives in the header, not below the strip: the card
+             is a fixed grid row, so anything added underneath pushed the columns
+             out of their track. -->
+        <div class="adhan-row">
+          <span class="adhan-wave" id="adhan-wave"><i class="ti ti-music"></i></span>
+          <button class="silence-btn" id="silence-btn" onclick="silenceAdhan()"
+                  title="Silence the adhan" aria-label="Silence the adhan">
+            <i class="ti ti-volume-off"></i>
+          </button>
+        </div>
         <button class="ibtn" onclick="openPrayerMonth()" title="Whole month" aria-label="Whole month" style="padding:8px 12px">
           <i class="ti ti-calendar-month"></i>
         </button>
       </div>
       <div class="prayer-list" id="prayer-list">
         <div class="loading-text" style="padding:8px 0">Loading prayer times…</div>
-      </div>
-      <div class="adhan-row">
-        <div class="adhan-wave" id="adhan-wave">
-          <i class="ti ti-music"></i> Playing…
-        </div>
-        <button class="silence-btn" id="silence-btn" onclick="silenceAdhan()">
-          <i class="ti ti-volume-off"></i> Silence
-        </button>
       </div>
     </div>
 
@@ -747,13 +742,17 @@
     </div>
     <div class="s-sec">
       <div class="s-lbl">Jumu'ah (Fridays)</div>
+      <div class="s-tgg" style="margin-bottom:8px">
+        <button class="s-opt" id="s-jum-auto" onclick="setJumuahSource('auto')">From masjid</button>
+        <button class="s-opt" id="s-jum-manual" onclick="setJumuahSource('manual')">Set manually</button>
+      </div>
       <div style="display:flex;gap:8px;align-items:center">
         <input class="s-inp" id="s-jumuah" type="time" style="flex:1">
         <label class="s-opt" style="flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:6px 10px;cursor:pointer">
           <input type="checkbox" id="s-jumuah-on" style="width:18px;height:18px"> On
         </label>
       </div>
-      <div class="s-hint" style="margin-top:6px">Replaces Dhuhr on Fridays only, and the adhan follows it. Ask the masjid for the current time — it is set by them, not calculated.</div>
+      <div class="s-hint" id="s-jumuah-hint" style="margin-top:6px"></div>
     </div>
     <div class="s-sec">
       <div class="s-lbl">Fine-tune (minutes)</div>
@@ -774,12 +773,14 @@
         <i class="ti ti-player-play" style="vertical-align:-2px;margin-right:5px"></i>Test Adhan
       </button>
       <div class="s-hint" style="margin-top:6px">Plays a preview. Tap the Adhan on/off button on the dashboard to toggle.</div>
-      <div class="s-hint" style="margin-top:6px">Own recording? Put <code>adhan.mp3</code> next to <code>index.html</code> — it overrides the online one. Add <code>adhan-fajr.mp3</code> for the Fajr call.</div>
+      <div class="s-hint" style="margin-top:6px">Own recording? Put <code>adhan.mp3</code> next to <code>index.html</code> — it overrides the online one. Add <code>adhan-fajr.mp3</code> for the Fajr call. Replacing either file is picked up on the next reload; it is cached so the adhan still plays with no internet.</div>
     </div>
     <div class="s-sec">
       <div class="s-lbl">Calendar bridge URL (recommended)</div>
       <input class="s-inp" id="s-script" placeholder="https://script.google.com/…/exec">
-      <div class="s-hint" style="margin-top:6px">Apps Script web app — gives live reads and lets you add events from the dashboard. Setup steps are in <code>apps-script/Code.gs</code>. Keep this URL private.</div>
+      <div class="s-hint" style="margin-top:6px" id="s-bridge-status"></div>
+      <div class="s-hint" style="margin-top:4px">Apps Script web app — gives live reads and lets you add events from the dashboard. Setup steps are in <code>apps-script/Code.gs</code>. Keep this URL private.</div>
+      <div class="s-hint" style="margin-top:4px">Tip: while developing, paste the <code>/dev</code> URL instead — it always runs the latest saved script, so no redeploy. Use <code>/exec</code> on the tablet.</div>
     </div>
     <div class="s-sec">
       <div class="s-lbl">Calendar — iCal URL (fallback)</div>
@@ -865,13 +866,23 @@
       <label class="ev-check">
         <input type="checkbox" id="ev-allday"> All day
       </label>
+      <div>
+        <div class="s-lbl">Location</div>
+        <input class="s-inp ev-in" id="ev-loc" placeholder="Where?" autocomplete="off">
+      </div>
+      <div>
+        <div class="s-lbl">Notes</div>
+        <textarea class="s-inp ev-in" id="ev-desc" rows="3" placeholder="Anything worth remembering"
+                  style="resize:none;line-height:1.4"></textarea>
+      </div>
       <div class="ev-msg" id="ev-msg"></div>
-      <div style="display:flex;gap:10px;margin-top:4px">
-        <button class="s-save-btn" id="ev-delete" style="flex:0 0 auto;padding-left:18px;padding-right:18px;background:var(--tint-red);border-color:var(--red);color:var(--red);display:none"
+      <div class="ev-actions">
+        <button class="s-save-btn ev-del" id="ev-delete" aria-label="Delete event"
+                style="background:var(--tint-red);border-color:var(--red);color:var(--red);display:none"
                 onclick="deleteCurrentEvent()"><i class="ti ti-trash"></i></button>
-        <button class="s-save-btn" style="flex:1;background:none;border-color:var(--border-2);color:var(--text-4)"
+        <button class="s-save-btn ev-cancel" style="background:none;border-color:var(--border-2);color:var(--text-4)"
                 onclick="closeEventComposer()">Cancel</button>
-        <button class="s-save-btn" style="flex:1" id="ev-save" onclick="saveNewEvent()">Add to calendar</button>
+        <button class="s-save-btn ev-ok" id="ev-save" onclick="saveNewEvent()">Add to calendar</button>
       </div>
     </div>
   </div>
@@ -992,24 +1003,88 @@ const ADHAN_URL = ADHAN_URLS.alafasyDubai;
 const LOCAL_ADHAN_FILES = { normal: 'adhan.mp3', fajr: 'adhan-fajr.mp3' };
 let localAdhan = { normal: null, fajr: null };
 
+/**
+ * Detection and preload are one GET, on purpose.
+ *
+ * This used to probe with HEAD, which cannot be answered from the Cache API —
+ * `cache.match()` ignores non-GET requests. So on a genuinely offline boot the
+ * probe failed, the local file was declared missing, and the adhan fell back to
+ * a CDN URL that was equally unreachable. A plain GET is served from the service
+ * worker cache, which is the whole point of precaching it.
+ */
 async function detectLocalAdhans() {
   for (const key of ['normal', 'fajr']) {
     const file = LOCAL_ADHAN_FILES[key];
     try {
-      const r = await fetch(file, { method: 'HEAD', cache: 'no-store' });
+      const r = await fetch(file, { cache: 'force-cache' });
+      if (!r.ok) continue;                       // 404 on GitHub Pages returns HTML
       const ct = (r.headers.get('content-type') || '').toLowerCase();
-      if (r.ok && (ct.includes('audio') || ct.includes('mpeg') || ct.includes('octet-stream'))) {
-        localAdhan[key] = file;
-        console.log('[adhan] using local file:', file);
-      }
-    } catch(_) { /* not present — fall back to CDN */ }
+      if (ct.includes('html')) continue;         // a 404 page, not a recording
+      const blob = await r.blob();
+      if (blob.size < 1024) continue;
+      localAdhan[key] = file;
+      adhanBlobUrl[key] = URL.createObjectURL(blob);
+      console.log(`[adhan] ${file} ready in memory (${Math.round(blob.size/1024)} KB) — no network needed`);
+    } catch(e) {
+      console.warn(`[adhan] ${file} unavailable:`, e.message);
+    }
+  }
+}
+
+/**
+ * Object URLs for recordings already pulled into memory.
+ *
+ * Playing straight from a blob means the moment of truth never involves a
+ * network request or a cache lookup. The service worker precaches the file so
+ * this preload itself works offline; once it has succeeded, the adhan is
+ * completely independent of connectivity.
+ */
+let adhanBlobUrl = { normal: null, fajr: null };
+
+/**
+ * The service worker tells us when it has replaced a cached recording, so
+ * dropping a new adhan.mp3 into the folder takes effect on the next reload
+ * rather than needing the cache version bumped by hand.
+ */
+function watchForAudioUpdates() {
+  if (!navigator.serviceWorker) return;
+  navigator.serviceWorker.addEventListener('message', ev => {
+    if (!ev.data || ev.data.type !== 'audio-updated') return;
+    const key = /fajr/i.test(ev.data.path || '') ? 'fajr' : 'normal';
+    reloadAdhanBlob(key);
+  });
+}
+
+async function reloadAdhanBlob(key) {
+  const file = LOCAL_ADHAN_FILES[key];
+  try {
+    const r = await fetch(file);          // now served from the refreshed cache
+    if (!r.ok) return;
+    const blob = await r.blob();
+    if (blob.size < 1024) return;
+    const old = adhanBlobUrl[key];
+    adhanBlobUrl[key] = URL.createObjectURL(blob);
+    localAdhan[key] = file;
+    // Don't pull the rug out from under a playing adhan; the old object URL is
+    // released once nothing is using it.
+    if (old) {
+      if (currentAdhan) setTimeout(() => URL.revokeObjectURL(old), 5 * 60000);
+      else URL.revokeObjectURL(old);
+    }
+    console.log(`[adhan] ${file} refreshed (${Math.round(blob.size/1024)} KB)`);
+  } catch(e) {
+    console.warn('[adhan] refresh failed for', file, e.message);
   }
 }
 
 // Fajr gets its own recording when supplied, otherwise the standard one.
+// Prefers the in-memory blob, then the local file, then the CDN.
 function adhanUrlFor(prayerKey) {
-  if (prayerKey === 'Fajr' && localAdhan.fajr) return localAdhan.fajr;
-  if (localAdhan.normal) return localAdhan.normal;
+  const wantFajr = prayerKey === 'Fajr';
+  if (wantFajr && adhanBlobUrl.fajr)   return adhanBlobUrl.fajr;
+  if (wantFajr && localAdhan.fajr)     return localAdhan.fajr;
+  if (adhanBlobUrl.normal)             return adhanBlobUrl.normal;
+  if (localAdhan.normal)               return localAdhan.normal;
   return ADHAN_URL;
 }
 // (adhanTimeouts removed — firing is now tick-based, see checkAdhanDue)
@@ -1044,9 +1119,11 @@ function loadSettings() {
   cfg.uiScale      = parseFloat(localStorage.getItem('hd_ui_scale') || '1');
   cfg.scriptUrl    = localStorage.getItem('hd_script_url')    || '';
   cfg.theme        = localStorage.getItem('hd_theme')         || 'dark';
-  // Default is DAMIC's published Jumu'ah time; enabled by default since the
-  // household attends there, but editable and switchable off.
-  cfg.jumuahTime    = localStorage.getItem('hd_jumuah_time') || '12:32';
+  // Jumu'ah is read from the masjid's page by default rather than hardcoded —
+  // it's set by them and can change without notice. A manual override stays
+  // available for when they announce a change before the page catches up.
+  cfg.jumuahSource  = localStorage.getItem('hd_jumuah_source') || 'auto';
+  cfg.jumuahTime    = localStorage.getItem('hd_jumuah_time') || '';
   cfg.jumuahEnabled = localStorage.getItem('hd_jumuah_on') !== '0';
   try {
     const saved = JSON.parse(localStorage.getItem('hd_tune') || 'null');
@@ -1193,8 +1270,12 @@ function findOverflow() {
   if (list) {
     const track = list.clientHeight;
     list.querySelectorAll('.prayer-row').forEach(row => {
-      const need = [...row.children].reduce((sum, c) => sum + c.offsetHeight, 0)
-                 + 16 + (row.children.length - 1) * 2;   // padding + gaps
+      // Only elements in the normal flow contribute height. The active column
+      // also holds an absolutely-positioned progress bar; counting it produced
+      // a phantom 5px overflow that no amount of trimming could resolve.
+      const flow = [...row.children].filter(c => getComputedStyle(c).position !== 'absolute');
+      const need = flow.reduce((sum, c) => sum + c.offsetHeight, 0)
+                 + 16 + Math.max(0, flow.length - 1) * 2;   // padding + gaps
       if (need > track + 1) bad.push(`prayer-row H ${need}>${track}`);
     });
   }
@@ -1258,8 +1339,9 @@ function applySettingsUI() {
   document.getElementById('s-method').value   = String(cfg.prayerMethod);
   document.getElementById('s-ical').value      = cfg.icalUrl;
   document.getElementById('s-script').value    = cfg.scriptUrl;
-  document.getElementById('s-jumuah').value    = cfg.jumuahTime;
   document.getElementById('s-jumuah-on').checked = cfg.jumuahEnabled;
+  applyJumuahUI();
+  renderBridgeStatus();
   buildTuneGrid();
   setTheme(cfg.theme, false);
   setUiScale(cfg.uiScale, false);
@@ -1275,9 +1357,10 @@ async function saveSettings() {
   cfg.icalUrl      = document.getElementById('s-ical').value.trim();
   cfg.scriptUrl    = document.getElementById('s-script').value.trim();
   localStorage.setItem('hd_script_url', cfg.scriptUrl);
-  cfg.jumuahTime    = document.getElementById('s-jumuah').value || '12:32';
+  cfg.jumuahTime    = document.getElementById('s-jumuah').value || '';
   cfg.jumuahEnabled = document.getElementById('s-jumuah-on').checked;
   localStorage.setItem('hd_jumuah_time', cfg.jumuahTime);
+  localStorage.setItem('hd_jumuah_source', cfg.jumuahSource);
   localStorage.setItem('hd_jumuah_on', cfg.jumuahEnabled ? '1' : '0');
   TUNE_KEYS.forEach(k => {
     const el = document.getElementById('tune-' + k);
@@ -1401,6 +1484,15 @@ function toggleClock() { setClockMode(cfg.clockMode === 'digital' ? 'analog' : '
 // ═══════════════════════════════════════════════════════════════
 function pad(n) { return String(n).padStart(2,'0'); }
 
+// Calendar text is user-supplied and gets injected into innerHTML. An apostrophe
+// or angle bracket in an event title would otherwise break the markup — and a
+// crafted title could inject elements outright.
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 function toDateStr(d) {
   return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
 }
@@ -1446,12 +1538,70 @@ function fmtCountdown(ms) {
  */
 function isFridayNow() { return new Date().getDay() === 5; }
 
+function setJumuahSource(src) {
+  cfg.jumuahSource = src === 'manual' ? 'manual' : 'auto';
+  localStorage.setItem('hd_jumuah_source', cfg.jumuahSource);
+  applyJumuahUI();
+  renderPrayerTimes();
+  // Switching to auto with nothing cached yet? Go and get it.
+  if (cfg.jumuahSource === 'auto' && !(loadVerify().jumuah || {}).time) maybeVerifyPrayerTimes(true);
+}
+
+function applyJumuahUI() {
+  const auto = cfg.jumuahSource !== 'manual';
+  const a = document.getElementById('s-jum-auto');
+  const m = document.getElementById('s-jum-manual');
+  if (a) a.className = auto ? 's-opt on' : 's-opt';
+  if (m) m.className = auto ? 's-opt' : 's-opt on';
+
+  const inp  = document.getElementById('s-jumuah');
+  const hint = document.getElementById('s-jumuah-hint');
+  const info = jumuahInfo();
+  if (inp) {
+    inp.value = auto ? (info.time || '') : (cfg.jumuahTime || info.time || '');
+    inp.disabled = auto;
+    inp.style.opacity = auto ? 0.6 : 1;
+  }
+  if (hint) {
+    hint.innerHTML = auto
+      ? (info.from === 'masjid'
+          ? `Read from DAMIC's page: <strong>${info.time}</strong>${info.on ? ' (for ' + info.on + ')' : ''}. Re-checked weekly.`
+          : info.from === 'dhuhr-fallback'
+            ? `Not fetched yet — showing Dhuhr (${info.time}) until the masjid's page is read. Needs the Calendar bridge.`
+            : 'Not available yet — needs the Calendar bridge in Settings.')
+      : 'Using your own time. Replaces Dhuhr on Fridays; the adhan follows it.';
+  }
+}
+
+/**
+ * Which Jumu'ah time to use, and where it came from.
+ *
+ * Auto is preferred and is the default: Jumu'ah is set by the masjid and cannot
+ * be calculated, so their published value is the only real authority. This is
+ * the one case where using a fetched time directly is *safer* than a local
+ * setting — the alternative is a hardcoded guess that silently goes stale.
+ * (The five daily prayers are different: we have a sound independent
+ * calculation for those, so scraped values only ever raise a flag there.)
+ */
+function jumuahInfo() {
+  if (cfg.jumuahSource === 'manual' && cfg.jumuahTime) {
+    return { time: cfg.jumuahTime, from: 'manual' };
+  }
+  const v = loadVerify();
+  if (v.jumuah && v.jumuah.time) return { time: v.jumuah.time, from: 'masjid', on: v.jumuah.date };
+  // Never fetched yet. Fall back to Dhuhr rather than inventing a time — the
+  // masjid's own data shows Jumu'ah at the Dhuhr time, so that is the closest
+  // honest guess, and it is obviously not a fabricated number.
+  if (prayerTimes.Dhuhr) return { time: prayerTimes.Dhuhr, from: 'dhuhr-fallback' };
+  return { time: null, from: 'none' };
+}
+
 function jumuahActive() {
-  return cfg.jumuahEnabled && !!cfg.jumuahTime && isFridayNow();
+  return cfg.jumuahEnabled && isFridayNow() && !!jumuahInfo().time;
 }
 
 function effectiveTime(key) {
-  if (key === 'Dhuhr' && jumuahActive()) return cfg.jumuahTime;
+  if (key === 'Dhuhr' && jumuahActive()) return jumuahInfo().time;
   return prayerTimes[key];
 }
 
@@ -1573,7 +1723,11 @@ async function maybeVerifyPrayerTimes(force) {
     v.lastOk  = new Date().toISOString();
     v.diffs   = diffs;
     v.masjid  = data.times;
+    v.via     = data.via || null;
     v.error   = null;
+    // Jumu'ah is taken as authoritative, not merely compared — it cannot be
+    // calculated, so the masjid's published value is the only real source.
+    if (data.jumuah && data.jumuah.time) v.jumuah = data.jumuah;
     // Streak, not a single sample — see the note above about DST.
     v.streak  = Math.abs(worst) >= VERIFY_TOLERANCE ? (v.streak || 0) + 1 : 0;
     v.worst   = worst;
@@ -1853,7 +2007,7 @@ function playAdhan(prayerKey) {
     adhanFallback('audio blocked by browser');
   });
   document.getElementById('adhan-wave').style.display = 'flex';
-  document.getElementById('silence-btn').style.display = 'inline-block';
+  document.getElementById('silence-btn').style.display = 'flex';
   currentAdhan.addEventListener('ended', silenceAdhan);
 }
 
@@ -1907,7 +2061,7 @@ async function demoAdhan() {
     currentAdhan = audio;
     audio.play().catch(() => { mpgOk = false; playTestTone(); });
     document.getElementById('adhan-wave').style.display = 'flex';
-    document.getElementById('silence-btn').style.display = 'inline-block';
+    document.getElementById('silence-btn').style.display = 'flex';
     audio.addEventListener('ended', silenceAdhan);
     setTimeout(silenceAdhan, 10000);
   } else {
@@ -2295,6 +2449,8 @@ function loadEventsFromBridge(list) {
       (calEvents[ds] = calEvents[ds] || []).push({
         id: e.id,
         title: e.title,
+        location: e.location || '',
+        description: e.description || '',
         color,
         allDay: e.allDay,
         timeStr: e.allDay ? 'All day' : (pad(start.getHours()) + ':' + pad(start.getMinutes())),
@@ -2317,6 +2473,8 @@ function parseIcal(text) {
       const start = ev.startDate.toJSDate();
       const end   = ev.endDate ? ev.endDate.toJSDate() : null;
       const title = ev.summary || '(No title)';
+      const loc   = ev.location || '';
+      const desc  = (ev.description || '').slice(0, 1000);
       const color = EVENT_COLORS[idx % EVENT_COLORS.length];
       const allDay = !ev.startDate.isDate ? false : ev.startDate.isDate;
 
@@ -2333,6 +2491,8 @@ function parseIcal(text) {
         if (!calEvents[ds]) calEvents[ds] = [];
         calEvents[ds].push({
           title,
+          location: loc,
+          description: desc,
           color,
           allDay,
           timeStr: allDay ? 'All day' : (pad(start.getHours()) + ':' + pad(start.getMinutes())),
@@ -2386,9 +2546,15 @@ function renderCalendarCard(events) {
         else if (nowMs >= startMs) cls = ' current';
       }
       const nowBadge = cls === ' current' ? '<span class="now-badge">NOW</span>' : '';
+      // Location earns a line here; notes are only shown on tap, since they can
+      // be long and this panel is glanced at from across the room.
+      const where = ev.location
+        ? `<div class="evt-loc"><i class="ti ti-map-pin"></i> ${esc(ev.location)}</div>` : '';
+      const note = ev.description ? '<i class="ti ti-notes evt-noteflag" title="Has notes"></i>' : '';
       return `<div class="today-evt${cls} evt-tap" onclick="editEventAt('${today}',${i})">
-        <div class="evt-time">${ev.timeStr} ${nowBadge}</div>
-        <div class="evt-title">${ev.title}</div>
+        <div class="evt-time">${ev.timeStr} ${nowBadge} ${note}</div>
+        <div class="evt-title">${esc(ev.title)}</div>
+        ${where}
       </div>`;
     }).join('');
   }
@@ -2408,9 +2574,10 @@ function renderCalendarCard(events) {
       return events[ds].slice(0,2).map((ev, i) => `
         <div class="upco evt-tap" onclick="editEventAt('${ds}',${i})">
           <div class="udot" style="background:${ev.color}"></div>
-          <div>
+          <div style="min-width:0">
             <div class="umeta">${lbl}${ev.allDay ? '' : ' · ' + ev.timeStr}</div>
-            <div class="utitle">${ev.title}</div>
+            <div class="utitle">${esc(ev.title)}</div>
+            ${ev.location ? `<div class="evt-loc"><i class="ti ti-map-pin"></i> ${esc(ev.location)}</div>` : ''}
           </div>
         </div>`);
     }).slice(0,5).join('');
@@ -2480,9 +2647,13 @@ function renderPrayerMonth(days) {
     const t = d.timings;
     // Fridays show the masjid's Jumu'ah time in the Dhuhr column, matching the
     // main strip. Aladhan has no Jumu'ah field — it's a local setting.
-    const showJumuah = isFriday && cfg.jumuahEnabled && cfg.jumuahTime;
+    // The masjid only publishes a week ahead, so every Friday in the month shows
+    // the most recently read Jumu'ah time. Standing times rarely move, but the
+    // tooltip is explicit that it isn't confirmed for that specific date.
+    const jInfo = jumuahInfo();
+    const showJumuah = isFriday && cfg.jumuahEnabled && jInfo.time && jInfo.from !== 'dhuhr-fallback';
     const dhuhrCell = showJumuah
-      ? `<td class="pm-jumuah" title="Jumu'ah — Dhuhr would be ${clean(t.Dhuhr)}">${cfg.jumuahTime}</td>`
+      ? `<td class="pm-jumuah" title="Jumu'ah (${jInfo.from === 'masjid' ? 'from masjid, read ' + (jInfo.on || 'recently') : 'set manually'}) — Dhuhr would be ${clean(t.Dhuhr)}">${jInfo.time}</td>`
       : `<td>${clean(t.Dhuhr)}</td>`;
 
     return `<tr class="${cls.trim()}">
@@ -2544,11 +2715,13 @@ let editingEvent = null;   // null = creating, otherwise the event being edited
 function openEventComposer(existing) {
   editingEvent = existing || null;
 
-  let start, dur = 60, title = '', allDay = false;
+  let start, dur = 60, title = '', allDay = false, loc = '', desc = '';
   if (existing) {
     start  = new Date(existing.start);
     allDay = !!existing.allDay;
     title  = existing.title;
+    loc    = existing.location || '';
+    desc   = existing.description || '';
     if (existing.end && !allDay) dur = Math.max(15, Math.round((new Date(existing.end) - start) / 60000));
   } else {
     start = calSelDate ? new Date(calSelDate + 'T00:00:00') : new Date();
@@ -2561,6 +2734,8 @@ function openEventComposer(existing) {
   document.getElementById('ev-time').value  = pad(start.getHours()) + ':' + pad(start.getMinutes());
   document.getElementById('ev-dur').value   = String(dur);
   document.getElementById('ev-allday').checked = allDay;
+  document.getElementById('ev-loc').value  = loc;
+  document.getElementById('ev-desc').value = desc;
   document.getElementById('ev-msg').textContent = '';
   document.getElementById('ev-save').textContent = existing ? 'Save changes' : 'Add to calendar';
   // Delete only makes sense for an existing event, and only the bridge can do it.
@@ -2592,7 +2767,7 @@ async function deleteCurrentEvent() {
   if (!confirm(`Delete "${editingEvent.title}"?\n\nThis removes it from the family calendar for everyone.`)) return;
   msg.textContent = 'Deleting…';
   try {
-    await bridgePost({ action: 'delete', id: editingEvent.id });
+    await bridgeCall('delete', { id: editingEvent.id });
     closeEventComposer();
     await fetchCalendar();
   } catch(e) {
@@ -2601,16 +2776,79 @@ async function deleteCurrentEvent() {
   }
 }
 
-// Shared POST helper. text/plain keeps this a "simple" CORS request so the
-// browser skips the preflight, which Apps Script web apps can't answer.
-async function bridgePost(payload) {
-  const res  = await fetch(cfg.scriptUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload)
+/**
+ * Single entry point for every bridge call, read or write.
+ *
+ * Writes go as GET, not POST. Apps Script /exec replies with a 302, and a 302 on
+ * a POST is re-issued by the browser as a GET with the body thrown away — so the
+ * write quietly became a read, fell into the default 'list' branch and came back
+ * {ok:true}. Nothing was saved and the dashboard reported success.
+ *
+ * The response must also echo the action performed. Without that check any
+ * future degradation to a plain list read would look like success all over
+ * again; with it, the caller gets a real error instead of a silent no-op.
+ */
+/**
+ * Minimum Apps Script version this page needs. Bumped only when the bridge's
+ * API actually changes — the dashboard checks on load and says so plainly,
+ * rather than letting you find out via a button that does nothing.
+ */
+const BRIDGE_MIN_VERSION = 6;
+let bridgeStatus = { checked: false, version: null, error: null, calendar: null };
+
+async function pingBridge() {
+  if (!cfg.scriptUrl) { bridgeStatus = { checked: false, version: null, error: null }; return; }
+  try {
+    const data = await bridgeCall('ping');
+    bridgeStatus = { checked: true, version: data.version || 1,
+                     calendar: data.calendar || null, error: null };
+  } catch(e) {
+    bridgeStatus = { checked: true, version: null, calendar: null, error: e.message };
+  }
+  renderBridgeStatus();
+}
+
+function renderBridgeStatus() {
+  const el = document.getElementById('s-bridge-status');
+  if (!el) return;
+  const b = bridgeStatus;
+  if (!cfg.scriptUrl)  { el.textContent = ''; return; }
+  if (!b.checked)      { el.innerHTML = '<span style="color:var(--text-5)">checking…</span>'; return; }
+  if (b.error)         { el.innerHTML = `<span style="color:var(--coral)">unreachable — ${b.error}</span>`; return; }
+  if (b.version < BRIDGE_MIN_VERSION) {
+    el.innerHTML = `<span style="color:var(--amber)">Bridge is v${b.version}; this app needs v${BRIDGE_MIN_VERSION}. ` +
+                   `Editing and verification will not work until you redeploy as a New version.</span>`;
+    return;
+  }
+  el.innerHTML = `<span style="color:var(--green)">Bridge v${b.version} ✓</span>` +
+                 (b.calendar ? ` <span style="color:var(--text-5)">— ${b.calendar}</span>` : '');
+}
+
+async function bridgeCall(action, params = {}) {
+  if (!cfg.scriptUrl) throw new Error('No calendar bridge configured');
+
+  const q = new URLSearchParams({ action, _: String(Date.now()) });
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== '') q.set(k, String(v));
   });
-  const data = await res.json();
+
+  const res = await fetch(cfg.scriptUrl + '?' + q.toString(),
+                          { cache: 'no-store', redirect: 'follow' });
+  let data;
+  try { data = await res.json(); }
+  catch(_) { throw new Error('bridge did not return JSON (HTTP ' + res.status + ')'); }
+
   if (!data.ok) throw new Error(data.error || 'unknown error');
+
+  // Only writes are held to the echo. Reads must stay working against an older
+  // deployment that doesn't send one, otherwise upgrading the page would break
+  // the calendar until the script happened to be redeployed.
+  const isWrite = action === 'create' || action === 'update' || action === 'delete';
+  if (isWrite && data.action !== action) {
+    throw new Error(
+      `bridge answered "${data.action || 'a plain read'}" instead of "${action}" — ` +
+      `redeploy the Apps Script as a New version (needs v5+)`);
+  }
   return data;
 }
 
@@ -2620,11 +2858,19 @@ async function saveNewEvent() {
   const time   = document.getElementById('ev-time').value || '09:00';
   const dur    = parseInt(document.getElementById('ev-dur').value, 10) || 60;
   const allDay = document.getElementById('ev-allday').checked;
+  const loc    = document.getElementById('ev-loc').value.trim();
+  const desc   = document.getElementById('ev-desc').value.trim();
   const msg    = document.getElementById('ev-msg');
   const btn    = document.getElementById('ev-save');
 
   if (!title) { msg.textContent = 'Give the event a title.'; return; }
   if (!date)  { msg.textContent = 'Pick a date.'; return; }
+  // Writes travel in the query string, so a very long note would silently hit a
+  // URL length limit. Say so rather than truncating someone's text.
+  if (desc.length > 1200) {
+    msg.textContent = `Notes are ${desc.length} characters; keep under 1200.`;
+    return;
+  }
 
   const start = new Date(date + 'T' + (allDay ? '00:00' : time) + ':00');
   const end   = new Date(start.getTime() + dur * 60000);
@@ -2632,11 +2878,15 @@ async function saveNewEvent() {
   btn.disabled = true;
   msg.textContent = 'Saving…';
   try {
-    await bridgePost({
-      action: editingEvent ? 'update' : 'create',
+    await bridgeCall(editingEvent ? 'update' : 'create', {
       id: editingEvent ? editingEvent.id : undefined,
       title, allDay,
-      start: start.toISOString(), end: end.toISOString()
+      start: start.toISOString(), end: end.toISOString(),
+      // Sent as a space when cleared, because bridgeCall drops empty strings and
+      // the script only overwrites fields it actually receives — otherwise you
+      // could never delete a location once set.
+      location: loc || ' ',
+      description: desc || ' '
     });
     closeEventComposer();
     await fetchCalendar();          // reflect it immediately
@@ -2756,8 +3006,10 @@ document.addEventListener('DOMContentLoaded', () => {
   setClockModeUI(cfg.clockMode);
   setNightModeUI(cfg.nightMode);
 
-  // Prefer a local adhan.mp3 / adhan-fajr.mp3 if the user supplied one
+  // Prefer a local adhan.mp3 / adhan-fajr.mp3 if the user supplied one, then
+  // pull it into memory so prayer time never waits on the network.
   detectLocalAdhans();
+  watchForAudioUpdates();
   loadAdhanPrefs();
 
   // Restore audio unlock state from previous session
@@ -2781,6 +3033,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(updateCalSyncLabel, 60 * 1000);
   startPixelShift();
   watchLayout();
+  pingBridge();   // tells you in Settings if the script needs redeploying
 
   // Wake lock
   requestWakeLock();

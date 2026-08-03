@@ -1,4 +1,4 @@
-const CACHE = 'hd-v8';
+const CACHE = 'hd-v10';  // v10: offline adhan + bridge calls no longer cached
 
 // Pinned third-party assets. Precached at install rather than left to be picked
 // up opportunistically, so the very first offline boot already has them —
@@ -9,8 +9,12 @@ const VENDOR = [
   'https://cdn.jsdelivr.net/npm/ical.js@1.5.0/build/ical.min.js',
 ];
 
-// Local adhan files are optional — c.add() failures are swallowed below.
-const SHELL = ['/', '/index.html', '/manifest.json', ...VENDOR];
+// The adhan recording is precached so the call still plays after a reboot with
+// no network — the one thing on this dashboard that absolutely must not depend
+// on connectivity. Optional files: c.add() failures are swallowed below.
+const AUDIO = ['/adhan.mp3', '/adhan-fajr.mp3'];
+
+const SHELL = ['/', '/index.html', '/manifest.json', ...VENDOR, ...AUDIO];
 
 self.addEventListener('install', e => {
   // Activate the new worker immediately instead of waiting for every tab to
@@ -34,13 +38,70 @@ self.addEventListener('activate', e =>
   )
 );
 
+/**
+ * Compares the cached recording against the server and replaces it if it changed,
+ * then tells any open page so it can reload its in-memory copy.
+ *
+ * ETag is preferred; GitHub Pages sends one. Content-Length is the fallback,
+ * which catches any realistic swap — a different recording is never byte-identical
+ * in length. Failure is silent on purpose: this runs on every audio request and
+ * being offline is the normal case it must tolerate.
+ */
+async function revalidateAudio(request, cached) {
+  try {
+    const fresh = await fetch(request.url, { cache: 'no-cache' });
+    if (fresh.status !== 200) return;
+
+    const oldTag = cached.headers.get('etag');
+    const newTag = fresh.headers.get('etag');
+    const changed = (oldTag && newTag)
+      ? oldTag !== newTag
+      : cached.headers.get('content-length') !== fresh.headers.get('content-length');
+    if (!changed) return;
+
+    const cache = await caches.open(CACHE);
+    await cache.put(request, fresh.clone());
+    const clients = await self.clients.matchAll({ includeUncontrolled: true });
+    clients.forEach(c => c.postMessage({
+      type: 'audio-updated', path: new URL(request.url).pathname
+    }));
+    console.log('[SW] replaced cached audio:', new URL(request.url).pathname);
+  } catch (_) { /* offline, or the file is gone — keep what we have */ }
+}
+
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
 
-  // Never intercept audio. Media elements rely on Range requests, and a service
-  // worker answering those with a full or partial cached body breaks playback
-  // in ways that are painful to debug. Let the browser handle it directly.
-  if (e.request.headers.has('range') || /\.(mp3|ogg|wav|m4a)$/i.test(url.pathname)) return;
+  // Range requests come from <audio> seeking. A service worker answering those
+  // with a full or partial cached body breaks playback, so leave them alone.
+  // Note this is now keyed on the Range header rather than the file extension:
+  // the page fetches the adhan as a plain Blob (no Range), and that request DOES
+  // need to be served from cache when offline.
+  if (e.request.headers.has('range')) return;
+
+  // Local audio: answered from cache immediately — that is what makes an offline
+  // adhan possible — then quietly revalidated in the background. Without the
+  // revalidation, replacing adhan.mp3 had no effect until someone remembered to
+  // bump CACHE, which is a silent failure of exactly the kind this app must not
+  // have. Swapping the file now just works on the next reload.
+  if (url.origin === self.location.origin && /\.(mp3|ogg|wav|m4a)$/i.test(url.pathname)) {
+    e.respondWith(
+      caches.match(e.request).then(hit => {
+        if (hit) {
+          e.waitUntil(revalidateAudio(e.request, hit));
+          return hit;
+        }
+        return fetch(e.request).then(res => {
+          if (res.status === 200) {
+            const clone = res.clone();
+            caches.open(CACHE).then(c => c.put(e.request, clone));
+          }
+          return res;
+        });
+      })
+    );
+    return;
+  }
 
   // Pinned library assets (icon font + CSS, ical.js). Cache-first and kept
   // forever: the versions are fixed, so a stale copy is the correct copy, and
@@ -49,11 +110,18 @@ self.addEventListener('fetch', e => {
   // boot = every icon rendered as a blank box.
   const isVendor = url.hostname === 'cdn.jsdelivr.net';
 
+  // Live data: always network, never stored. script.google.com matters here —
+  // without it the Apps Script bridge fell through to the caching branch below,
+  // and because those calls carry a cache-busting timestamp every single one
+  // became a new cache entry. On a dashboard that runs for months that is an
+  // unbounded leak, and it risks serving a stale calendar too.
   const isAPI = !isVendor && (
-                url.hostname.includes('aladhan.com')        ||
-                url.hostname.includes('open-meteo.com')     ||
-                url.hostname.includes('corsproxy.io')       ||
-                url.hostname.includes('calendar.google.com'));
+                url.hostname.includes('aladhan.com')            ||
+                url.hostname.includes('open-meteo.com')          ||
+                url.hostname.includes('corsproxy.io')            ||
+                url.hostname.includes('calendar.google.com')     ||
+                url.hostname.includes('script.google.com')       ||
+                url.hostname.includes('script.googleusercontent.com'));
 
   if (isVendor) {
     e.respondWith(
