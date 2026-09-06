@@ -306,6 +306,13 @@
     .p-bell-spacer { height: 34px; }
     /* Shown when prayer times came from cache because the service was
        unreachable — a silent stale fallback would be worse than no fallback. */
+    .missed-chip {
+      font-size: calc(13px * var(--ui-scale, 1));
+      font-weight: 600; letter-spacing: 0.03em; text-transform: none;
+      color: var(--coral); background: var(--tint-coral);
+      border: 1px solid var(--coral); border-radius: 6px;
+      padding: 3px 8px; margin-right: 8px; cursor: pointer; white-space: nowrap;
+    }
     .stale-badge {
       font-size: calc(13px * var(--ui-scale, 1));
       font-weight: 600; letter-spacing: 0.04em;
@@ -407,7 +414,10 @@
     /* ── Calendar rail — spans the full height of the right column ── */
     .agenda-rail { grid-column: 2; grid-row: 1 / -1; }
     .cal-inner { display: flex; flex-direction: column; gap: 16px; flex: 1; min-height: 0; padding-bottom: 58px; }
-    .cal-today-sec { flex: 0 0 auto; max-height: 42%; overflow: hidden; display: flex; flex-direction: column; }
+    /* Raised from 42%: today's events are now larger and more emphasised, and
+       three of them were being sliced through the middle of a card. Today earns
+       the room — Upcoming keeps the remainder and scrolls. */
+    .cal-today-sec { flex: 0 1 auto; max-height: 58%; overflow: hidden; display: flex; flex-direction: column; }
     .cal-up-sec { flex: 1; min-height: 0; display: flex; flex-direction: column; }
     #upcoming-list { overflow-y: auto; flex: 1; min-height: 0; }
     #upcoming-list::-webkit-scrollbar { width: 0; }
@@ -417,32 +427,43 @@
     .t-today { color: var(--green); }
     .t-up { color: var(--text-4); }
     .today-evts { display: flex; flex-direction: column; gap: 8px; }
+    /* Today's events are the ones that change what you do in the next few
+       hours, so they get the loudest treatment on the board. */
     .today-evt {
       border-radius: 10px;
-      padding: 10px 14px;
-      border: 1px solid var(--border-2);
-      border-left: 4px solid var(--border-2);
-      background: var(--surface);
+      padding: 11px 14px;
+      border: 1px solid var(--coral);
+      border-left: 5px solid var(--coral);
+      background: var(--tint-coral);
       min-width: 0;
     }
+    .today-evt .evt-title { color: var(--coral); font-weight: 700; }
+    .today-evt .evt-time  { color: var(--coral); font-weight: 600; opacity: 0.85; }
+    .today-evt .evt-loc   { color: var(--coral); opacity: 0.8; }
     /* Tappable rows get a visible press state — on a wall tablet there's no
        cursor to hint that something is interactive. */
     .evt-tap { cursor: pointer; transition: background .15s; }
     .evt-tap:active { background: var(--press); }
+    /* In progress right now — blue outranks the red "today" styling. */
     .today-evt.current { border-color: var(--blue); border-left-color: var(--blue); background: var(--tint-blue); }
-    .today-evt.past { opacity: 0.5; }
-    .today-evt.past .evt-title { text-decoration: line-through; text-decoration-color: var(--text-6); }
-    .evt-time { font-size: calc(16px * var(--ui-scale, 1)); color: var(--text-3); margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
-    .evt-title { font-size: calc(22px * var(--ui-scale, 1)); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .evt-loc { font-size: calc(15px * var(--ui-scale, 1)); color: var(--text-4); margin-top: 3px;
+    .today-evt.current .evt-title, .today-evt.current .evt-time, .today-evt.current .evt-loc { color: var(--blue); }
+    /* Already finished — drop back to neutral so it stops competing for attention. */
+    .today-evt.past { opacity: 0.55; border-color: var(--border-2); border-left-color: var(--border-2); background: var(--surface); }
+    .today-evt.past .evt-title { color: var(--text-4); font-weight: 400; text-decoration: line-through; text-decoration-color: var(--text-6); }
+    .today-evt.past .evt-time, .today-evt.past .evt-loc { color: var(--text-5); font-weight: 400; }
+    /* Calendar type runs a size larger than the rest of the meta text — it is
+       read from further away than the settings panel ever is. */
+    .evt-time { font-size: calc(18px * var(--ui-scale, 1)); color: var(--text-3); margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+    .evt-title { font-size: calc(25px * var(--ui-scale, 1)); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .evt-loc { font-size: calc(17px * var(--ui-scale, 1)); color: var(--text-4); margin-top: 3px;
                white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .evt-noteflag { font-size: calc(15px * var(--ui-scale, 1)); color: var(--text-5); }
+    .evt-noteflag { font-size: calc(16px * var(--ui-scale, 1)); color: var(--text-5); }
     .now-badge { background: var(--blue); color: var(--bg-deep); font-size: calc(12px * var(--ui-scale, 1)); font-weight: 700; border-radius: 4px; padding: 2px 7px; }
     .upco { display: flex; align-items: flex-start; gap: 9px; padding: 7px 0; border-bottom: 1px solid var(--border); }
     .upco:last-of-type { border-bottom: none; }
     .udot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 7px; }
-    .umeta { font-size: calc(16px * var(--ui-scale, 1)); color: var(--text-3); }
-    .utitle { font-size: calc(22px * var(--ui-scale, 1)); color: var(--text); }
+    .umeta { font-size: calc(17px * var(--ui-scale, 1)); color: var(--text-3); }
+    .utitle { font-size: calc(24px * var(--ui-scale, 1)); color: var(--text); }
 
     /* ── Settings panel ── */
     .s-backdrop { display: none; position: absolute; top:0;left:0;width:100%;height:100%; background: var(--scrim); z-index: 8; }
@@ -473,7 +494,9 @@
     /* Night mode used to hold 96px digits on identical pixels for ~8h a night,
        indefinitely — that burns a clock into the panel. The inner wrapper is
        repositioned every 60s within a ±160×±120px box instead. */
-    .dim-inner { display:flex; flex-direction:column; align-items:center; gap:8px; transition: transform 6s ease-in-out; }
+    /* 14s glide: slow enough that the movement is never noticeable as motion,
+       only as the clock not being in quite the same place later. */
+    .dim-inner { display:flex; flex-direction:column; align-items:center; gap:8px; transition: transform 14s ease-in-out; }
     .dim-time { font-size: calc(96px * var(--ui-scale, 1)); font-weight:500; color:var(--night-fg); letter-spacing:-0.02em; line-height:1; }
     .dim-lbl { font-size: calc(14px * var(--ui-scale, 1)); color:var(--night-fg2); }
 
@@ -765,7 +788,12 @@
         <button class="s-opt on" id="s-night-auto" onclick="setNightMode('auto')">Auto (after Isha)</button>
         <button class="s-opt" id="s-night-manual" onclick="setNightMode('manual')">Manual only</button>
       </div>
-      <div class="s-hint">Screen dims to near-black after Isha. Tap anywhere to wake.</div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+        <span class="s-hint" style="flex:1;margin:0">Dim this many minutes after Isha, and again after you wake it</span>
+        <input class="s-inp" id="s-night-delay" type="number" min="0" max="120" step="1"
+               style="flex:0 0 76px;text-align:center">
+      </div>
+      <div class="s-hint" style="margin-top:6px">Stays dark until Fajr. Tap anywhere to wake it; it dims again on its own after the delay above, so it can't be left bright overnight by accident.</div>
     </div>
     <div class="s-sec">
       <div class="s-lbl">Adhan</div>
@@ -1115,6 +1143,8 @@ function loadSettings() {
   }
   cfg.prayerMethod = parseInt(localStorage.getItem('hd_prayer_method') || '15');
   cfg.nightMode    = localStorage.getItem('hd_night_mode')    || 'auto';
+  cfg.nightDelayMin = parseInt(localStorage.getItem('hd_night_delay') || '5', 10);
+  if (!isFinite(cfg.nightDelayMin) || cfg.nightDelayMin < 0) cfg.nightDelayMin = 5;
   cfg.icalUrl      = localStorage.getItem('hd_ical_url')      || '';
   cfg.uiScale      = parseFloat(localStorage.getItem('hd_ui_scale') || '1');
   cfg.scriptUrl    = localStorage.getItem('hd_script_url')    || '';
@@ -1341,6 +1371,7 @@ function applySettingsUI() {
   document.getElementById('s-script').value    = cfg.scriptUrl;
   document.getElementById('s-jumuah-on').checked = cfg.jumuahEnabled;
   applyJumuahUI();
+  document.getElementById('s-night-delay').value = cfg.nightDelayMin;
   renderBridgeStatus();
   buildTuneGrid();
   setTheme(cfg.theme, false);
@@ -1371,6 +1402,10 @@ async function saveSettings() {
   localStorage.setItem('hd_clock_mode',    cfg.clockMode);
   localStorage.setItem('hd_prayer_method', cfg.prayerMethod);
   localStorage.setItem('hd_night_mode',    cfg.nightMode);
+  const nd = parseInt(document.getElementById('s-night-delay').value, 10);
+  cfg.nightDelayMin = (isFinite(nd) && nd >= 0) ? nd : 5;
+  localStorage.setItem('hd_night_delay', String(cfg.nightDelayMin));
+  nightWokeAt = Date.now();   // don't dim the instant the panel closes
   localStorage.setItem('hd_ical_url',      cfg.icalUrl);
   closeSettings();
   // Geocode new city if location changed, then re-fetch
@@ -1465,6 +1500,8 @@ function updateClock() {
 
   // Adhan is fired from here rather than a long setTimeout — see checkAdhanDue.
   checkAdhanDue();
+  // Night mode likewise: derived from the clock, so a frozen tab can't skip it.
+  evaluateNightMode();
 }
 
 function setClockModeUI(m) {
@@ -1897,8 +1934,10 @@ function getPrayerStates() {
 }
 
 function getNextPrayer() {
-  const now = new Date();
-  const nowMs = now.getTime();
+  // Date.now(), not new Date(), so this agrees with getPrayerStates() and the
+  // adhan watcher. Two different time sources in the same render is how you get
+  // a countdown that disagrees with the row it is printed under.
+  const nowMs = Date.now();
   // Build sorted list of {label, key, timeMs} excluding Shuruq
   const candidates = PRAYER_DISPLAY
     .filter(p => !p.shuruq && effectiveTime(p.key))
@@ -1918,8 +1957,20 @@ function updateNextPrayerCountdown() {
   const next = getNextPrayer();
   if (!next) return;
   const ms  = next.timeMs - Date.now();
+
+  // Re-render whenever the state actually changes, not merely when an element
+  // has gone missing.
+  //
+  // The old test was `if (!document.getElementById('p-countdown'))`. But when a
+  // prayer arrives, that element still exists — it is sitting on the row that
+  // *used* to be next — so the strip was never rebuilt. The result was a display
+  // frozen mid-afternoon: prayers that had passed were not struck through and
+  // NOW stayed on the wrong column until someone reloaded the page.
+  const sig = stripSignature();
+  if (sig !== lastStripSignature) { renderPrayerTimes(); }
+
   const cd = document.getElementById('p-countdown');
-  if (!cd) { renderPrayerTimes(); return; }   // window rolled over — re-render
+  if (!cd) return;            // gap between Shuruq and Dhuhr: nothing is "next" on screen
 
   const imminent = ms < 5 * 60000;
   const urgent   = !imminent && ms < 15 * 60000;
@@ -1936,8 +1987,19 @@ function updateNextPrayerCountdown() {
   }
 }
 
+// Identity of what the strip is currently showing: which prayer is active, which
+// is next, and the date. Any change here means the strip must be rebuilt.
+let lastStripSignature = '';
+function stripSignature() {
+  const st = getPrayerStates();
+  if (!st.entries.length) return '';
+  return [toDateStr(new Date()), st.activeIdx, st.next && st.next.key,
+          jumuahActive() ? 'j' : '-'].join('|');
+}
+
 function renderPrayerTimes() {
   const { entries, next, nextMs } = getPrayerStates();
+  lastStripSignature = stripSignature();
   const listEl = document.getElementById('prayer-list');
   if (!entries.length) return;
   listEl.innerHTML = '';
@@ -2109,6 +2171,43 @@ function playTestTone() {
  */
 const adhanFired = {};        // 'YYYY-MM-DD:Key' -> true, so each fires once
 let prayerTimesStale = false;
+const ADHAN_LATE_GRACE_MS = 15 * 60000;
+let missedAdhans = [];
+
+function noteMissedAdhan(label, mins) {
+  missedAdhans.push({ label, mins, at: Date.now() });
+  renderMissedAdhan();
+}
+
+function renderMissedAdhan() {
+  const host = document.querySelector('.prayer-card .clabel');
+  if (!host) return;
+  const old = host.querySelector('.missed-chip');
+  if (old) old.remove();
+  if (!missedAdhans.length) return;
+  const last = missedAdhans[missedAdhans.length - 1];
+  const chip = document.createElement('span');
+  chip.className = 'missed-chip';
+  chip.textContent = `${last.label} adhan missed`;
+  chip.title = `The tab was asleep and woke ${last.mins} minutes after ${last.label}. ` +
+               `Tap to dismiss. If this repeats, stop the tablet screen from sleeping.`;
+  chip.onclick = (e) => { e.stopPropagation(); missedAdhans = []; renderMissedAdhan(); };
+  host.insertBefore(chip, host.lastElementChild);
+}
+
+/**
+ * Android freezes background tabs, which stops the 1s tick entirely — that is
+ * the likeliest reason an evening adhan never played while the afternoon ones
+ * did. On regaining visibility, catch up at once instead of waiting for the next
+ * scheduled tick.
+ */
+function catchUpAfterSleep() {
+  if (document.hidden) return;
+  renderPrayerTimes();
+  updateNextPrayerCountdown();
+  checkAdhanDue();
+  scheduleNightMode();
+}
 
 function primeAdhanWatcher() {
   // Mark everything already in the past as handled, so enabling a prayer or
@@ -2138,9 +2237,16 @@ function checkAdhanDue() {
     if (elapsed < 0) return;                 // not yet
     adhanFired[key] = true;                  // claim it before playing
     // If we were asleep for a long time, the moment has genuinely passed —
-    // don't startle the house with an adhan an hour late.
-    if (elapsed > 5 * 60000) {
-      console.warn(`[adhan] ${p.key} was ${Math.round(elapsed / 60000)}min ago; not playing late`);
+    // don't startle the house with an adhan an hour late. Widened from 5 to 15
+    // minutes: Android freezes background tabs, so a tick can be several minutes
+    // late through no fault of the schedule, and 10 minutes into the window the
+    // call is still useful.
+    if (elapsed > ADHAN_LATE_GRACE_MS) {
+      const mins = Math.round(elapsed / 60000);
+      console.warn(`[adhan] ${p.key} was ${mins}min ago; too late to play`);
+      // Silence was previously the only symptom. Record it so the dashboard can
+      // say a call was missed rather than leaving you to wonder.
+      noteMissedAdhan(p.label, mins);
       return;
     }
     playAdhan(p.key);
@@ -2302,20 +2408,35 @@ function activateNight() {
   nightActive = true;
   const el = document.getElementById('dim-block');
   el.style.display = 'flex';
-  requestAnimationFrame(() => el.classList.add('visible'));
+  // afterLayout, not requestAnimationFrame: rAF does not run in a hidden tab, so
+  // night mode engaging while the screen is off left the overlay at opacity 0 —
+  // display:flex and swallowing taps, but showing the dashboard at full
+  // brightness underneath. Exactly the overnight case this feature exists for.
+  afterLayout(() => el.classList.add('visible'));
   const btn = document.getElementById('night-btn');
   btn.className = 'fab night-active';
   btn.innerHTML = '<i class="ti ti-sun"></i>';
-  // Wander the dim clock around the panel so it can't burn in over months.
-  driftNightClock();
+  // Start centred — drifting begins a minute later, so the clock never appears
+  // off to one side the moment the screen dims.
+  const inner = document.getElementById('dim-inner');
+  if (inner) inner.style.transform = 'translate(0px, 0px)';
+  clearInterval(nightDriftTimer);
   nightDriftTimer = setInterval(driftNightClock, 60000);
 }
 
+/**
+ * Nudges the dim clock so it can't etch itself into the panel over months.
+ *
+ * The radius was ±160×120px, which put the clock visibly off to one side and
+ * looked like a layout fault rather than an intentional drift. ±64×40 still
+ * moves it further than the height of the digits — which is what matters for
+ * burn-in — while reading as centred at a glance.
+ */
 function driftNightClock() {
   const inner = document.getElementById('dim-inner');
   if (!inner) return;
-  const x = Math.round((Math.random() * 2 - 1) * 160);
-  const y = Math.round((Math.random() * 2 - 1) * 120);
+  const x = Math.round((Math.random() * 2 - 1) * 64);
+  const y = Math.round((Math.random() * 2 - 1) * 40);
   inner.style.transform = `translate(${x}px, ${y}px)`;
 }
 
@@ -2342,34 +2463,69 @@ function startPixelShift() {
   }, 90000);
 }
 
+let nightWokeAt = 0;        // when the screen was last woken by hand
+let nightAutoEngaged = false;  // night mode was started automatically, not by the user
+
 function wakeFromNight() {
+  nightWokeAt = Date.now();   // starts the grace period before it dims again
   deactivateNight();
-  // If auto mode, don't re-trigger until next Isha
 }
 
 function toggleNightManual() {
   if (nightActive) wakeFromNight();
-  else activateNight();
+  else { nightWokeAt = 0; activateNight(); }
 }
 
-function scheduleNightMode() {
-  nightTimeouts.forEach(t => clearTimeout(t)); nightTimeouts = [];
+/**
+ * Is the clock inside the nightly dim window — from Isha plus the configured
+ * delay, until Fajr?
+ */
+function nightWindowActive() {
+  if (!prayerTimes.Isha || !prayerTimes.Fajr) return false;
+  const delay = (cfg.nightDelayMin || 5) * 60000;
+  const now   = Date.now();
+  let start = parseHHMM(prayerTimes.Isha).getTime() + delay;
+  let end   = parseHHMM(prayerTimes.Fajr).getTime();
+  if (end <= start) end += 86400000;          // Fajr belongs to the next morning
+  if (now >= start && now < end) return true;
+  // Small hours: today's Isha is still ahead of us, but we are inside the window
+  // that opened last night.
+  return now >= start - 86400000 && now < end - 86400000;
+}
+
+/**
+ * Evaluated on the clock tick rather than scheduled with setTimeout.
+ *
+ * The old version armed two timers up to 24 hours out. Android freezes a
+ * backgrounded tab, so those timers could simply never fire — the same failure
+ * that cost the evening adhans. Deriving the state from the current time each
+ * tick cannot be missed, however long the tab was asleep.
+ */
+function evaluateNightMode() {
   if (cfg.nightMode !== 'auto') return;
-  if (!prayerTimes.Isha || !prayerTimes.Fajr) return;
-  const now = Date.now();
 
-  const ishaDate  = parseHHMM(prayerTimes.Isha);
-  const fajrDate  = parseHHMM(prayerTimes.Fajr);
+  if (!nightWindowActive()) {
+    if (nightActive && nightAutoEngaged) deactivateNight();   // Fajr: wake up
+    nightAutoEngaged = false;
+    nightWokeAt = 0;
+    return;
+  }
+  if (nightActive) return;
 
-  let ishaMs = ishaDate.getTime() - now;
-  if (ishaMs < 0) ishaMs += 86400000;
+  // Someone tapped to look at the dashboard: leave it lit for the grace period,
+  // then dim again by itself.
+  const delay = (cfg.nightDelayMin || 5) * 60000;
+  if (nightWokeAt && Date.now() - nightWokeAt < delay) return;
 
-  let fajrMs = fajrDate.getTime() - now;
-  // Fajr might be < Isha (e.g. Isha is 00:52, Fajr is 03:14 next day)
-  if (fajrMs <= ishaMs) fajrMs += 86400000;
+  nightAutoEngaged = true;
+  activateNight();
+}
 
-  nightTimeouts.push(setTimeout(() => { activateNight(); }, ishaMs));
-  nightTimeouts.push(setTimeout(() => { deactivateNight(); }, fajrMs));
+// Kept for the existing call sites; the work now happens on the tick.
+function scheduleNightMode() {
+  nightTimeouts.forEach(t => clearTimeout(t));
+  nightTimeouts = [];
+  evaluateNightMode();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -3038,8 +3194,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // Wake lock
   requestWakeLock();
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') requestWakeLock();
+    if (document.visibilityState !== 'visible') return;
+    requestWakeLock();
+    catchUpAfterSleep();   // the tab may have been frozen for hours
   });
+  // A frozen tab also stops the clock outright, so re-sync whenever the browser
+  // hands control back for any reason.
+  window.addEventListener('focus', catchUpAfterSleep);
+  window.addEventListener('pageshow', catchUpAfterSleep);
 });
 
 // Register service worker
