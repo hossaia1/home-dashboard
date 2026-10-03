@@ -410,6 +410,23 @@
     .htemp { font-size: calc(28px * var(--ui-scale, 1)); font-weight: 600; color: var(--text); margin: 1px 0; }
     .hmeta { font-size: calc(16px * var(--ui-scale, 1)); color: var(--text-3); line-height: 1.5; }
     .rain-hi { color: var(--blue); font-weight: 600; }
+    /* Rain per slot — the droplet is the thing a parent's eye looks for, so it's
+       a proper icon now rather than a 14px afterthought. */
+    .hrain { display: flex; align-items: center; justify-content: center; gap: 4px;
+             font-size: calc(17px * var(--ui-scale, 1)); color: var(--text-3); line-height: 1.3; }
+    .hrain i { font-size: calc(22px * var(--ui-scale, 1)); }
+    .hrain.rain-hi { color: var(--blue); font-weight: 700; }
+
+    /* Today's (or tomorrow's) rain answer, top-right of the weather card. */
+    .rain-verdict { margin-left: auto; display: flex; align-items: center; gap: 10px;
+                    padding: 8px 14px; border-radius: 12px; max-width: 52%; }
+    .rain-verdict i { font-size: calc(34px * var(--ui-scale, 1)); flex-shrink: 0; }
+    .rv-head { font-size: calc(21px * var(--ui-scale, 1)); font-weight: 700; line-height: 1.15; }
+    .rv-sub  { font-size: calc(15px * var(--ui-scale, 1)); opacity: 0.85; margin-top: 2px; }
+    .rv-wet   { background: var(--tint-blue-hi); color: var(--blue); border: 1px solid var(--edge-blue); }
+    .rv-maybe { background: var(--tint-blue-soft); color: var(--blue); }
+    .rv-dry   { color: var(--text-3); }
+    .rv-dry i { color: var(--amber); }
 
     /* ── Calendar rail — spans the full height of the right column ── */
     .agenda-rail { grid-column: 2; grid-row: 1 / -1; }
@@ -526,6 +543,62 @@
     .vd-table tr.vd-hot td { color: var(--coral); font-weight: 600; }
     .vd-note { font-size: calc(15px * var(--ui-scale,1)); color: var(--text-4); margin-top: 12px; line-height: 1.5; }
 
+    /* ── Quran player ── */
+    .clock-card { position: relative; }
+    .mini-player {
+      display: none; position: absolute; right: 18px; top: 50%; transform: translateY(-50%);
+      width: 250px; padding: 12px 14px; border-radius: 14px;
+      background: var(--tint-green); border: 1px solid var(--edge-green);
+      flex-direction: column; gap: 8px;
+    }
+    .mini-player.on { display: flex; }
+    .mp-label { display: flex; gap: 10px; align-items: center; color: var(--green); }
+    .mp-label > i { font-size: calc(26px * var(--ui-scale,1)); flex-shrink: 0; }
+    .mp-title { font-size: calc(19px * var(--ui-scale,1)); font-weight: 700; color: var(--text);
+                white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mp-sub { font-size: calc(13px * var(--ui-scale,1)); color: var(--text-4); }
+    .mp-bar { height: 5px; border-radius: 3px; background: var(--border-2); overflow: hidden; cursor: pointer; }
+    .mp-fill { height: 100%; width: 0%; background: var(--green); transition: width 1s linear; }
+    .mp-ctrls { display: flex; gap: 8px; }
+    .mp-btn { width: 46px; height: 40px; border-radius: 10px; border: 1px solid var(--border-2);
+              background: var(--card); color: var(--text); font-size: 20px; cursor: pointer;
+              display: flex; align-items: center; justify-content: center; }
+    .mp-btn.big { width: 56px; height: 48px; font-size: 24px; flex-shrink: 0; }
+    .mp-btn:active { background: var(--press); }
+
+    .sq-modal { width: 900px; }
+    .sq-reciter { font-size: calc(14px * var(--ui-scale,1)); font-weight: 400; color: var(--text-4); margin-left: 8px; }
+    .sq-search { flex: 1; font-size: calc(18px * var(--ui-scale,1)); padding: 10px 14px; min-height: 46px; margin: 0 6px; }
+    .sq-row { display: flex; align-items: center; gap: 14px; padding: 11px 18px;
+              border-bottom: 1px solid var(--rule-soft); cursor: pointer; }
+    .sq-row:active { background: var(--press); }
+    .sq-row.playing { background: var(--tint-green); }
+    .sq-num { width: 42px; height: 42px; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center;
+              justify-content: center; font-size: calc(16px * var(--ui-scale,1)); font-weight: 700;
+              background: var(--surface); color: var(--text-3); }
+    .sq-row.playing .sq-num { background: var(--green); color: var(--card); }
+    .sq-names { flex: 1; min-width: 0; }
+    .sq-en { font-size: calc(20px * var(--ui-scale,1)); font-weight: 600; color: var(--text); }
+    .sq-mean { font-size: calc(15px * var(--ui-scale,1)); color: var(--text-4); }
+    .sq-ar { font-size: calc(26px * var(--ui-scale,1)); color: var(--text-2); direction: rtl;
+             font-family: 'Amiri','Scheherazade New','Noto Naskh Arabic','Geeza Pro',serif; }
+    .sq-save { width: 44px; height: 44px; border-radius: 10px; border: none; background: none; flex-shrink: 0;
+               font-size: 22px; color: var(--text-5); cursor: pointer; display:flex; align-items:center; justify-content:center; }
+    .sq-save.saved { color: var(--green); }
+    .sq-save.busy { color: var(--blue); font-size: 13px; font-weight: 700; }
+    .sq-player { display: flex; align-items: center; gap: 12px; padding: 12px 18px;
+                 border-top: 1px solid var(--border-2); background: var(--panel); flex-shrink: 0; }
+    .sq-now { width: 260px; flex-shrink: 0; min-width: 0; }
+    .sq-now-title { font-size: calc(19px * var(--ui-scale,1)); font-weight: 700; color: var(--text);
+                    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sq-now-sub { font-size: calc(13px * var(--ui-scale,1)); color: var(--text-4); }
+    .sq-progress { flex: 1; height: 8px; }
+    .sq-time { font-size: calc(15px * var(--ui-scale,1)); color: var(--text-3); min-width: 96px; text-align: right;
+               font-variant-numeric: tabular-nums; }
+    .sq-offline { display: flex; justify-content: space-between; align-items: center; gap: 10px;
+                  padding: 8px 18px; font-size: calc(14px * var(--ui-scale,1)); color: var(--text-4);
+                  border-top: 1px solid var(--rule-soft); flex-shrink: 0; }
+
     /* ── Monthly prayer timetable ── */
     .pm-overlay { display:none; position:absolute; top:0;left:0;width:100%;height:100%;
                   background:var(--scrim); z-index:19; align-items:center; justify-content:center; }
@@ -617,7 +690,24 @@
   <div class="db-grid">
 
     <!-- CLOCK -->
-    <div class="card" style="justify-content:center">
+    <div class="card clock-card" style="justify-content:center">
+      <!-- Shown while a recitation is playing, so it can be paused without
+           reopening the list. The clock card has spare room on its right. -->
+      <div class="mini-player" id="mini-player">
+        <div class="mp-label">
+          <i class="ti ti-book-2"></i>
+          <div style="min-width:0">
+            <div class="mp-title" id="mp-title">—</div>
+            <div class="mp-sub" id="mp-sub">Mishary Alafasy</div>
+          </div>
+        </div>
+        <div class="mp-bar"><div class="mp-fill" id="mp-fill"></div></div>
+        <div class="mp-ctrls">
+          <button class="mp-btn" id="mp-toggle" onclick="quranToggle()" aria-label="Pause"><i class="ti ti-player-pause"></i></button>
+          <button class="mp-btn" onclick="quranStop()" aria-label="Stop"><i class="ti ti-player-stop"></i></button>
+          <button class="mp-btn" onclick="openSurahs()" aria-label="Open list"><i class="ti ti-list"></i></button>
+        </div>
+      </div>
       <div id="clock-digital">
         <!-- City caption lives on the weather card; repeating it here just ate
              vertical space the clock needed. -->
@@ -662,6 +752,9 @@
             <i class="ti ti-volume-off"></i>
           </button>
         </div>
+        <button class="ibtn" onclick="openSurahs()" title="Quran recitations" style="padding:4px 12px">
+          <i class="ti ti-book-2"></i> Surahs
+        </button>
         <button class="ibtn" onclick="openPrayerMonth()" title="Whole month" aria-label="Whole month" style="padding:8px 12px">
           <i class="ti ti-calendar-month"></i>
         </button>
@@ -853,6 +946,36 @@
         <button class="s-save-btn" style="flex:1;background:none;border-color:var(--border-2);color:var(--text-4)"
                 onclick="closeVerifyDetail()">Close</button>
         <button class="s-save-btn" style="flex:1" onclick="maybeVerifyPrayerTimes(true).then(showVerifyDetail)">Check now</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Surahs: searchable list + player -->
+  <div class="pm-overlay" id="sq-overlay">
+    <div class="pm-modal sq-modal">
+      <div class="pm-hdr">
+        <div class="pm-ttl"><i class="ti ti-book-2" style="vertical-align:-3px"></i> Surahs
+          <span class="sq-reciter">Mishary Rashid Alafasy</span></div>
+        <input class="s-inp sq-search" id="sq-search" type="search" placeholder="Search — name, meaning or number"
+               oninput="renderSurahList()" autocomplete="off">
+        <button class="cal-nav-btn" onclick="closeSurahs()" aria-label="Close"><i class="ti ti-x"></i></button>
+      </div>
+      <div class="pm-scroll" id="sq-list"><div class="loading-text" style="padding:20px">Loading…</div></div>
+      <div class="sq-player" id="sq-player">
+        <div class="sq-now">
+          <div class="sq-now-title" id="sq-now-title">Tap a surah to listen</div>
+          <div class="sq-now-sub" id="sq-now-sub"></div>
+        </div>
+        <span class="sq-time" id="sq-time"></span>
+        <div class="mp-bar sq-progress" onclick="quranSeek(event)"><div class="mp-fill" id="sq-fill"></div></div>
+        <button class="mp-btn big" id="sq-toggle" onclick="quranToggle()" aria-label="Play or pause"><i class="ti ti-player-play"></i></button>
+        <button class="mp-btn big" onclick="quranStop()" aria-label="Stop"><i class="ti ti-player-stop"></i></button>
+      </div>
+      <div class="sq-offline">
+        <span id="sq-store">—</span>
+        <button class="ibtn" id="sq-juz" onclick="saveJuzAmma()" style="padding:6px 12px;min-height:36px">
+          <i class="ti ti-download"></i> Save Juz' Amma offline (78–114, ~58 MB)
+        </button>
       </div>
     </div>
   </div>
@@ -2060,6 +2183,11 @@ function playAdhan(prayerKey) {
   // Per-prayer gate: a prayer muted in the list never plays.
   if (!adhanEnabledFor(prayerKey) || !audioUnlocked) return;
   silenceAdhan();
+  // Never talk over the adhan: pause any recitation. It is left paused rather
+  // than auto-resumed — after the call, the household is usually going to pray.
+  if (typeof quranAudio !== 'undefined' && quranNow && !quranAudio.paused) {
+    quranAudio.pause(); quranPausedByAdhan = true; renderQuranUi();
+  }
   currentAdhan = new Audio(adhanUrlFor(prayerKey));
   // If the recording can't load or the browser blocks playback, fall back to the
   // synthetic tone so the call is never silently missed.
@@ -2320,7 +2448,10 @@ function isNightAt(date) {
 
 async function fetchWeather() {
   // Use timezone=auto so Open-Meteo picks the right timezone for any city
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${cfg.lat}&longitude=${cfg.lon}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,wind_speed_10m,weather_code&timezone=auto&forecast_days=2`;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${cfg.lat}&longitude=${cfg.lon}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,precipitation,wind_speed_10m,weather_code&timezone=auto&forecast_days=2&wind_speed_unit=ms`;
+  // wind_speed_unit=ms: Open-Meteo defaults to km/h, but the app has always
+  // labelled wind in m/s — so a breezy 32 km/h was being shown as "32 m/s",
+  // which would be a storm.
   try {
     const res = await fetch(url);
     const d   = await res.json();
@@ -2330,6 +2461,44 @@ async function fetchWeather() {
     document.getElementById('weather-content').innerHTML =
       '<div class="error-text"><i class="ti ti-wifi-off"></i> Unavailable</div>';
   }
+}
+
+/**
+ * One plain answer to "do the children need rain clothes?".
+ *
+ * Before about 5pm it covers the rest of today until 18:00; after that it looks
+ * at tomorrow's 07–18 window, because that's when clothes get laid out. Uses
+ * both probability and amount: a 30% chance of 0.1 mm is not the same day as a
+ * 30% chance of 4 mm.
+ */
+function rainVerdict(hrly) {
+  const now = new Date();
+  const evening = now.getHours() >= 17;
+  const day = new Date(now); if (evening) day.setDate(day.getDate() + 1);
+  const dayStr = toDateStr(day);
+  const fromH  = evening ? 7 : now.getHours();
+  const slots = hrly.time.map((t, i) => ({ dt: new Date(t), i }))
+    .filter(({dt}) => toDateStr(dt) === dayStr && dt.getHours() >= fromH && dt.getHours() < 18);
+  if (!slots.length) return null;
+
+  let maxP = 0, mm = 0, first = null;
+  slots.forEach(({dt, i}) => {
+    const p = hrly.precipitation_probability[i] ?? 0;
+    const m = (hrly.precipitation && hrly.precipitation[i]) || 0;
+    maxP = Math.max(maxP, p); mm += m;
+    if (!first && (p >= 40 || m >= 0.3)) first = dt;
+  });
+  mm = Math.round(mm * 10) / 10;
+  const when = evening ? 'tomorrow' : 'today';
+  if (maxP >= 50 || mm >= 1) {
+    return { level: 'wet', head: `Rain ${when}`,
+             sub: `${first ? 'from ' + pad(first.getHours()) + ':00 · ' : ''}${maxP}%${mm ? ' · ' + mm + ' mm' : ''}`,
+             note: 'Rain clothes' };
+  }
+  if (maxP >= 25 || mm >= 0.2) {
+    return { level: 'maybe', head: `Showers possible ${when}`, sub: `up to ${maxP}%${mm ? ' · ' + mm + ' mm' : ''}`, note: 'Pack a rain jacket' };
+  }
+  return { level: 'dry', head: `Dry ${when}`, sub: maxP ? `max ${maxP}%` : '', note: '' };
 }
 
 function renderWeather(d) {
@@ -2351,6 +2520,7 @@ function renderWeather(d) {
     .map(({dt, i}) => {
       const slotWmo = getWMO(hrly.weather_code[i], dt);
       const rain = hrly.precipitation_probability[i] ?? 0;
+      const mm   = (hrly.precipitation && hrly.precipitation[i]) || 0;
       const isTomorrow = dt.getDate() !== todayDate;
       return {
         time: pad(dt.getHours()) + ':00',
@@ -2358,8 +2528,8 @@ function renderWeather(d) {
         icon: slotWmo.icon,
         iconColor: slotWmo.color,
         temp: safeVal(hrly.temperature_2m[i], '°'),
-        wind: safeVal(hrly.wind_speed_10m[i], 'm/s'),
-        rain
+        wind: safeVal(hrly.wind_speed_10m[i], ' m/s'),
+        rain, mm
       };
     });
 
@@ -2370,10 +2540,22 @@ function renderWeather(d) {
       <div class="htime">${c.time}</div>
       <i class="ti ${c.icon}" data-opt="7" style="font-size:calc(28px * var(--ui-scale,1));color:${c.iconColor}"></i>
       <div class="htemp">${c.temp}</div>
-      <div class="hmeta${c.rain >= 40 ? ' rain-hi' : ''}" data-opt="8">
-        <i class="ti ti-droplet" style="font-size:14px"></i> ${c.rain}%${c.rain >= 40 ? ' ▲' : ''}
+      <div class="hrain${c.rain >= 40 || c.mm >= 0.3 ? ' rain-hi' : ''}" data-opt="8">
+        <i class="ti ti-${c.rain >= 40 || c.mm >= 0.3 ? 'cloud-rain' : 'droplet'}"></i>
+        <span>${c.rain}%${c.mm >= 0.1 ? ` · ${Math.round(c.mm * 10) / 10}mm` : ''}</span>
       </div>
     </div>` : '<div class="hcol"></div>').join('');
+
+  const rv = rainVerdict(hrly);
+  const rvIcon = rv ? (rv.level === 'wet' ? 'ti-umbrella' : rv.level === 'maybe' ? 'ti-cloud-rain' : 'ti-sun-high') : '';
+  const rvHtml = rv ? `
+      <div class="rain-verdict rv-${rv.level}">
+        <i class="ti ${rvIcon}"></i>
+        <div>
+          <div class="rv-head">${rv.head}</div>
+          ${rv.sub || rv.note ? `<div class="rv-sub">${[rv.sub, rv.note].filter(Boolean).join(' — ')}</div>` : ''}
+        </div>
+      </div>` : '';
 
   document.getElementById('weather-content').innerHTML = `
     <div class="wtop">
@@ -2381,10 +2563,10 @@ function renderWeather(d) {
       <div>
         <div style="display:flex;align-items:baseline;gap:8px">
           <span class="wtemp-big">${temp}</span><span class="wunit">°C</span>
-          <span style="font-size:34px;color:var(--text-3);font-weight:400">/ ${feel}°</span>
         </div>
-        <div class="wdesc" data-opt="1">${wmo.desc} · feels like</div>
+        <div class="wdesc" data-opt="1">${wmo.desc} · feels like ${feel}°</div>
       </div>
+      ${rvHtml}
     </div>
     <div class="hgrid">${colsHtml}</div>`;
   fitToScale();   // re-apply column trimming after the grid is rebuilt
@@ -2588,9 +2770,22 @@ async function refreshCalendarNow() {
 }
 
 // Same output shape as parseIcal(), so everything downstream is unchanged.
+// Invitations owned by someone else can't be deleted through the calendar API,
+// so "remove" for those means hiding them on this dashboard only.
+function hiddenEventIds() {
+  try { return new Set(JSON.parse(localStorage.getItem('hd_hidden_events') || '[]')); }
+  catch(_) { return new Set(); }
+}
+function hideEventLocally(id) {
+  const s = hiddenEventIds(); s.add(id);
+  // Bounded so it can't grow forever on a device that runs for years.
+  localStorage.setItem('hd_hidden_events', JSON.stringify([...s].slice(-300)));
+}
+
 function loadEventsFromBridge(list) {
   calEvents = {};
-  (list || []).forEach((e, idx) => {
+  const hidden = hiddenEventIds();
+  (list || []).filter(e => !hidden.has(e.id)).forEach((e, idx) => {
     const start = new Date(e.start);
     const end   = e.end ? new Date(e.end) : null;
     const color = EVENT_COLORS[idx % EVENT_COLORS.length];
@@ -2604,6 +2799,7 @@ function loadEventsFromBridge(list) {
       const ds = toDateStr(cursor);
       (calEvents[ds] = calEvents[ds] || []).push({
         id: e.id,
+        owned: e.owned !== false,   // older bridges don't send it; assume owned
         title: e.title,
         location: e.location || '',
         description: e.description || '',
@@ -2738,6 +2934,260 @@ function renderCalendarCard(events) {
         </div>`);
     }).slice(0,5).join('');
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SURAHS — Mishary Rashid Alafasy, playable offline once saved
+//
+// The full recitation is ~1.6 GB, far too much to download silently onto a
+// tablet. So: any surah you play is saved in the background as it plays, and
+// Juz' Amma (78–114, ~58 MB — the short surahs most recited with children) can
+// be saved in one go. Saved audio lives in its own cache ('hd-quran') which the
+// service worker deliberately never clears on app updates.
+// ═══════════════════════════════════════════════════════════════
+const QURAN_CACHE = 'hd-quran';
+const quranUrl = n => `https://server8.mp3quran.net/afs/${String(n).padStart(3, '0')}.mp3`;
+
+let surahMeta = null;                 // [ [arabic, translit, meaning, ayahs], … ] index 0 = surah 1
+let quranSaved = new Set();           // surah numbers available offline
+const quranBusy = new Map();          // n -> percent, for downloads in flight
+const quranAudio = new Audio();
+quranAudio.preload = 'auto';
+let quranNow = null;                  // surah number currently loaded
+let quranBlobUrl = null;
+let quranPausedByAdhan = false;
+
+async function loadSurahMeta() {
+  if (surahMeta) return surahMeta;
+  try { surahMeta = JSON.parse(localStorage.getItem('hd_surah_meta') || 'null'); } catch(_) {}
+  if (surahMeta && surahMeta.length === 114) return surahMeta;
+  try {
+    const j = await (await fetch('https://api.alquran.cloud/v1/surah')).json();
+    surahMeta = j.data.map(s => [s.name.replace(/^سُورَةُ\s*/, ''), s.englishName, s.englishNameTranslation, s.numberOfAyahs]);
+    localStorage.setItem('hd_surah_meta', JSON.stringify(surahMeta));   // kept forever: names don't change
+  } catch(_) {
+    // Offline before the list was ever fetched: numbers still play from cache.
+    surahMeta = Array.from({ length: 114 }, (_, i) => ['', 'Surah ' + (i + 1), '', '']);
+  }
+  return surahMeta;
+}
+
+async function refreshQuranSaved() {
+  try {
+    const c = await caches.open(QURAN_CACHE);
+    const keys = await c.keys();
+    quranSaved = new Set(keys.map(r => parseInt(r.url.match(/(\d{3})\.mp3/)?.[1], 10)).filter(Boolean));
+  } catch(_) {}
+  updateQuranStoreLabel();
+}
+
+async function updateQuranStoreLabel() {
+  const el = document.getElementById('sq-store');
+  if (!el) return;
+  let usage = '';
+  try {
+    const est = await navigator.storage.estimate();
+    usage = ` · ${Math.round((est.usage || 0) / 1048576)} MB used on this device`;
+  } catch(_) {}
+  el.textContent = `${quranSaved.size} of 114 saved for offline${usage}`;
+  const juz = document.getElementById('sq-juz');
+  const juzDone = Array.from({ length: 37 }, (_, i) => 78 + i).every(n => quranSaved.has(n));
+  if (juz && !juzBusy) juz.style.display = juzDone ? 'none' : '';
+}
+
+// Loose matching so "yasin" finds Yaseen, "fatiha" finds Al-Faatiha and
+// "waqiah" finds Al-Waaqia — transliterations are spelled every which way.
+function normLatin(s) {
+  return (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+    .replace(/ee/g, 'i').replace(/oo/g, 'u').replace(/(.)\1+/g, '$1').replace(/h$/, '');
+}
+function normArabic(s) {
+  return (s || '').replace(/[ً-ٰٟۖ-ۭـ]/g, '').replace(/[ٱأإآ]/g, 'ا');
+}
+
+async function openSurahs() {
+  document.getElementById('sq-overlay').style.display = 'flex';
+  await loadSurahMeta();
+  await refreshQuranSaved();
+  renderSurahList();
+  try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch(_) {}
+}
+function closeSurahs() { document.getElementById('sq-overlay').style.display = 'none'; }
+
+function renderSurahList() {
+  const host = document.getElementById('sq-list');
+  if (!surahMeta || !host) return;
+  const q = document.getElementById('sq-search').value.trim();
+  const qn = normLatin(q), qa = normArabic(q);
+  const rows = [];
+  surahMeta.forEach((s, i) => {
+    const n = i + 1;
+    if (q) {
+      const hit = String(n) === q
+        || normLatin(s[1]).includes(qn) && qn
+        || normLatin(s[2]).includes(qn) && qn
+        || (qa && /[؀-ۿ]/.test(q) && normArabic(s[0]).includes(qa));
+      if (!hit) return;
+    }
+    const busy = quranBusy.get(n);
+    const save = busy != null
+      ? `<button class="sq-save busy" disabled>${busy}%</button>`
+      : quranSaved.has(n)
+        ? `<button class="sq-save saved" title="Saved for offline" onclick="event.stopPropagation()"><i class="ti ti-circle-check"></i></button>`
+        : `<button class="sq-save" title="Save for offline" onclick="event.stopPropagation();saveSurah(${n})"><i class="ti ti-download"></i></button>`;
+    rows.push(`<div class="sq-row${quranNow === n ? ' playing' : ''}" onclick="playSurah(${n})">
+      <div class="sq-num">${n}</div>
+      <div class="sq-names">
+        <div class="sq-en">${esc(s[1])}</div>
+        <div class="sq-mean">${esc(s[2])}${s[3] ? ' · ' + s[3] + ' ayahs' : ''}</div>
+      </div>
+      <div class="sq-ar">${esc(s[0])}</div>
+      ${save}
+    </div>`);
+  });
+  host.innerHTML = rows.join('') || '<div class="loading-text" style="padding:20px">No surah matches that.</div>';
+}
+
+async function playSurah(n) {
+  // Stop anything already playing, including an earlier blob.
+  quranAudio.pause();
+  if (quranBlobUrl) { URL.revokeObjectURL(quranBlobUrl); quranBlobUrl = null; }
+  quranNow = n; quranPausedByAdhan = false;
+
+  let src = null;
+  try {
+    const hit = await (await caches.open(QURAN_CACHE)).match(quranUrl(n));
+    if (hit) { quranBlobUrl = URL.createObjectURL(await hit.blob()); src = quranBlobUrl; }
+  } catch(_) {}
+
+  if (!src) {
+    if (!navigator.onLine) {
+      setQuranStatus(`${surahName(n)} isn't saved for offline yet — connect to the internet once to play it.`);
+      quranNow = null; renderSurahList(); return;
+    }
+    src = quranUrl(n);
+    saveSurah(n);       // stream now, and keep a copy so next time works offline
+  }
+
+  quranAudio.src = src;
+  // Update the UI first. play() can take seconds to resolve on a slow start, and
+  // the tap should register immediately rather than looking ignored.
+  renderQuranUi();
+  renderSurahList();
+  quranAudio.play().catch(e => setQuranStatus('Could not start playback: ' + e.message));
+}
+
+function surahName(n) { return (surahMeta && surahMeta[n - 1] && surahMeta[n - 1][1]) || ('Surah ' + n); }
+
+function quranToggle() {
+  if (!quranNow) return;
+  quranPausedByAdhan = false;
+  if (quranAudio.paused) quranAudio.play().catch(() => {}); else quranAudio.pause();
+}
+
+function quranStop() {
+  quranAudio.pause();
+  quranAudio.removeAttribute('src'); quranAudio.load();
+  if (quranBlobUrl) { URL.revokeObjectURL(quranBlobUrl); quranBlobUrl = null; }
+  quranNow = null; quranPausedByAdhan = false;
+  renderQuranUi(); renderSurahList();
+}
+
+function quranSeek(ev) {
+  if (!quranNow || !isFinite(quranAudio.duration)) return;
+  const r = ev.currentTarget.getBoundingClientRect();
+  quranAudio.currentTime = Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width)) * quranAudio.duration;
+}
+
+function fmtClock(sec) {
+  if (!isFinite(sec)) return '--:--';
+  sec = Math.floor(sec);
+  const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+  return (h ? h + ':' + pad(m) : m) + ':' + pad(s);
+}
+
+function setQuranStatus(text) {
+  document.getElementById('sq-now-sub').textContent = text;
+}
+
+function renderQuranUi() {
+  const playing = !!quranNow && !quranAudio.paused;
+  const name = quranNow ? surahName(quranNow) : '';
+  const icon = `<i class="ti ti-player-${playing ? 'pause' : 'play'}"></i>`;
+  document.getElementById('sq-toggle').innerHTML = icon;
+  document.getElementById('mp-toggle').innerHTML = icon;
+  document.getElementById('sq-now-title').textContent = quranNow ? `${quranNow}. ${name}` : 'Tap a surah to listen';
+  document.getElementById('mp-title').textContent = quranNow ? `${quranNow}. ${name}` : '—';
+  if (quranNow && !document.getElementById('sq-now-sub').textContent.startsWith('Could'))
+    setQuranStatus(quranBlobUrl ? 'Playing from this device' : 'Streaming — saving for offline');
+  if (!quranNow) setQuranStatus('');
+  document.getElementById('mini-player').classList.toggle('on', !!quranNow);
+  const pct = quranNow && isFinite(quranAudio.duration) && quranAudio.duration
+    ? (quranAudio.currentTime / quranAudio.duration * 100) : 0;
+  document.getElementById('sq-fill').style.width = pct + '%';
+  document.getElementById('mp-fill').style.width = pct + '%';
+  document.getElementById('sq-time').textContent = quranNow
+    ? `${fmtClock(quranAudio.currentTime)} / ${fmtClock(quranAudio.duration)}` : '';
+  document.getElementById('mp-sub').textContent = quranPausedByAdhan
+    ? 'Paused for the adhan' : (playing ? 'Mishary Alafasy' : 'Paused');
+}
+
+['play', 'pause', 'timeupdate', 'loadedmetadata'].forEach(ev => quranAudio.addEventListener(ev, renderQuranUi));
+quranAudio.addEventListener('ended', quranStop);
+quranAudio.addEventListener('error', () => {
+  if (quranNow) setQuranStatus('Playback failed — check the connection, or save it for offline first.');
+});
+
+// Download one surah into the offline cache, with progress shown on its row.
+async function saveSurah(n) {
+  if (quranBusy.has(n) || quranSaved.has(n)) return true;
+  quranBusy.set(n, 0); renderSurahList();
+  try {
+    const res = await fetch(quranUrl(n));
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const total = Number(res.headers.get('content-length')) || 0;
+    const reader = res.body.getReader();
+    const chunks = []; let got = 0, lastPct = -1;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value); got += value.length;
+      const pct = total ? Math.floor(got / total * 100) : 0;
+      if (pct !== lastPct && pct % 5 === 0) { quranBusy.set(n, pct); lastPct = pct; renderSurahList(); }
+    }
+    if (total && got < total) throw new Error('download incomplete');
+    const blob = new Blob(chunks, { type: 'audio/mpeg' });
+    await (await caches.open(QURAN_CACHE)).put(quranUrl(n),
+      new Response(blob, { headers: { 'Content-Type': 'audio/mpeg', 'Content-Length': String(blob.size) } }));
+    quranSaved.add(n);
+    return true;
+  } catch(e) {
+    console.warn('[quran] save failed for', n, e.message);
+    return false;
+  } finally {
+    quranBusy.delete(n);
+    renderSurahList(); updateQuranStoreLabel();
+  }
+}
+
+let juzBusy = false;
+async function saveJuzAmma() {
+  if (juzBusy) return;
+  juzBusy = true;
+  const btn = document.getElementById('sq-juz');
+  const todo = Array.from({ length: 37 }, (_, i) => 78 + i).filter(n => !quranSaved.has(n));
+  let done = 0, failed = 0;
+  for (const n of todo) {
+    btn.innerHTML = `<i class="ti ti-loader-2"></i> Saving ${done + 1} of ${todo.length}…`;
+    // One at a time: kind to the tablet and to the server.
+    if (!(await saveSurah(n))) failed++;
+    done++;
+  }
+  juzBusy = false;
+  btn.innerHTML = failed
+    ? `<i class="ti ti-alert-triangle"></i> ${failed} failed — tap to retry`
+    : `<i class="ti ti-download"></i> Save Juz' Amma offline (78–114, ~58 MB)`;
+  updateQuranStoreLabel();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2896,8 +3346,25 @@ function openEventComposer(existing) {
   document.getElementById('ev-save').textContent = existing ? 'Save changes' : 'Add to calendar';
   // Delete only makes sense for an existing event, and only the bridge can do it.
   document.getElementById('ev-delete').style.display = existing && existing.id ? 'inline-flex' : 'none';
+
+  // Invitations: show details, but say up front that they can't be changed here,
+  // rather than letting someone edit and then fail on Save.
+  const invite = !!(existing && existing.owned === false);
+  ['ev-title','ev-date','ev-time','ev-dur','ev-allday','ev-loc','ev-desc']
+    .forEach(id => { document.getElementById(id).disabled = invite; });
+  document.getElementById('ev-save').style.display = invite ? 'none' : '';
+  document.getElementById('ev-delete').title = invite ? 'Hide from dashboard' : 'Delete event';
+  if (invite) {
+    document.getElementById('ev-modal-title').textContent = 'Invitation';
+    document.getElementById('ev-msg').style.color = 'var(--text-4)';
+    document.getElementById('ev-msg').textContent =
+      'Sent by someone else — read only here. The bin button hides it from the dashboard.';
+  } else {
+    document.getElementById('ev-msg').style.color = '';
+  }
+
   document.getElementById('ev-overlay').style.display = 'flex';
-  setTimeout(() => document.getElementById('ev-title').focus(), 50);
+  if (!invite) setTimeout(() => document.getElementById('ev-title').focus(), 50);
 }
 
 function closeEventComposer() {
@@ -2917,17 +3384,44 @@ function editEventAt(dateStr, idx) {
   openEventComposer(ev);
 }
 
+// Errors that mean "you don't own this event", from a v7 bridge or straight from
+// Google on an older one.
+function isNotOwnedError(msg) {
+  return /NOT_OWNED|not allowed|permission|writer access|organi[sz]er/i.test(msg || '');
+}
+
+function offerHideInvitation(ev) {
+  const ok = confirm(
+    `"${ev.title}" was sent to you by someone else (for example a school invitation), ` +
+    `so it can't be deleted from here.\n\n` +
+    `Hide it from the dashboard?\n\n` +
+    `(To remove it from Google Calendar itself, decline it in the Google Calendar app. ` +
+    `Nothing is sent to the organiser from here.)`);
+  if (!ok) return false;
+  hideEventLocally(ev.id);
+  closeEventComposer();
+  fetchCalendar();
+  return true;
+}
+
 async function deleteCurrentEvent() {
   if (!editingEvent || !editingEvent.id) return;
+  const ev  = editingEvent;
   const msg = document.getElementById('ev-msg');
-  if (!confirm(`Delete "${editingEvent.title}"?\n\nThis removes it from the family calendar for everyone.`)) return;
+
+  if (ev.owned === false) { offerHideInvitation(ev); return; }
+
+  if (!confirm(`Delete "${ev.title}"?\n\nThis removes it from the family calendar for everyone.`)) return;
   msg.textContent = 'Deleting…';
   try {
-    await bridgeCall('delete', { id: editingEvent.id });
+    await bridgeCall('delete', { id: ev.id });
     closeEventComposer();
     await fetchCalendar();
   } catch(e) {
     console.error('Delete failed', e);
+    // An older bridge doesn't report ownership up front, so this is where we
+    // find out — turn the raw Google error into the useful option.
+    if (isNotOwnedError(e.message)) { msg.textContent = ''; offerHideInvitation(ev); return; }
     msg.textContent = 'Could not delete: ' + e.message;
   }
 }
@@ -3166,6 +3660,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // pull it into memory so prayer time never waits on the network.
   detectLocalAdhans();
   watchForAudioUpdates();
+  loadSurahMeta();   // so the mini-player can name a surah without the list ever being opened
   loadAdhanPrefs();
 
   // Restore audio unlock state from previous session

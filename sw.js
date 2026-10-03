@@ -1,4 +1,9 @@
-const CACHE = 'hd-v10';  // v10: offline adhan + bridge calls no longer cached
+const CACHE = 'hd-v11';  // v11: Quran recitations kept across updates
+
+// Saved recitations live in their own cache, managed by the page. It must
+// survive app updates — re-downloading hundreds of MB because the app shell
+// changed would be absurd — so activate never deletes it.
+const KEEP = ['hd-quran'];
 
 // Pinned third-party assets. Precached at install rather than left to be picked
 // up opportunistically, so the very first offline boot already has them —
@@ -33,7 +38,7 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e =>
   e.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE && !KEEP.includes(k)).map(k => caches.delete(k))))
       .then(() => self.clients.claim())   // take over open pages right away
   )
 );
@@ -140,6 +145,12 @@ self.addEventListener('fetch', e => {
     e.respondWith(fetch(e.request).catch(() => new Response('{}', { headers: { 'Content-Type': 'application/json' } })));
     return;
   }
+
+  // Anything else cross-origin (recitation audio, surah list) is left entirely
+  // to the browser. The branch below used to catch these too and copy every
+  // 200 response into the app cache — which for recitations would have stored a
+  // second copy of up to 1.6 GB of audio alongside the page's own Quran cache.
+  if (url.origin !== self.location.origin) return;
 
   // Same-origin shell: network-first so edits show up on reload, falling back
   // to cache when offline. Cache-first was silently serving a stale index.html.

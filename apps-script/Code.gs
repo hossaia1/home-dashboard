@@ -50,8 +50,9 @@ const DEFAULT_DAYS = 90;
 // list/ping alone look identical before and after.
 // v2 = update + delete, v3 = masjid verification, v4 = JSON-LD parsing + Jumu'ah,
 // v5 = writes via GET (POST was being downgraded by the 302) + action echo,
-// v6 = location + description read/write
-const SCRIPT_VERSION = 6;
+// v6 = location + description read/write,
+// v7 = ownership flag; invitations can't be edited/deleted, declined ones hidden
+const SCRIPT_VERSION = 7;
 
 // Public prayer-times page for the masjid the household follows. Fetched
 // server-side here so the tablet never scrapes anything directly and no
@@ -150,8 +151,17 @@ function listEvents(days) {
   start.setHours(0, 0, 0, 0);
   var end = new Date(start.getTime() + days * 86400000);
 
-  return cal().getEvents(start, end).map(function (ev) {
+  return cal().getEvents(start, end).filter(function (ev) {
+    // Invitations you've declined shouldn't clutter the family dashboard.
+    try { return ev.getMyStatus() !== CalendarApp.GuestStatus.NO; } catch (e) { return true; }
+  }).map(function (ev) {
+    var owned = true;
+    try { owned = ev.isOwnedByMe(); } catch (e) {}
     return {
+      // Events sent by someone else (e.g. school invitations from Outlook) are
+      // owned by the organiser. They can't be edited or deleted from here, so
+      // the dashboard needs to know which is which.
+      owned:    owned,
       id:       ev.getId(),
       title:    ev.getTitle() || '(No title)',
       start:    ev.getStartTime().toISOString(),
@@ -192,6 +202,7 @@ function updateEvent(b) {
   if (!b.id) throw new Error('id is required');
   var ev = cal().getEventById(b.id);
   if (!ev) throw new Error('Event not found');
+  if (!ev.isOwnedByMe()) throw new Error(NOT_OWNED_MSG);
 
   var wasAllDay = ev.isAllDayEvent();
   if (!!b.allDay !== wasAllDay) {
@@ -213,9 +224,19 @@ function updateEvent(b) {
   return { id: ev.getId(), title: ev.getTitle(), start: ev.getStartTime().toISOString() };
 }
 
+// The dashboard recognises this text and offers to hide the event instead.
+var NOT_OWNED_MSG = 'NOT_OWNED: this is an invitation from someone else, so it can only be ' +
+                    'removed by its organiser (or declined in Google Calendar).';
+
+/**
+ * Deliberately does NOT decline invitations automatically. Declining sends a
+ * reply to the organiser — for school events that would mean an email to the
+ * school on the family's behalf, which is not what "delete" should do silently.
+ */
 function deleteEvent(id) {
   var ev = cal().getEventById(id);
   if (!ev) throw new Error('Event not found');
+  if (!ev.isOwnedByMe()) throw new Error(NOT_OWNED_MSG);
   ev.deleteEvent();
   return true;
 }
