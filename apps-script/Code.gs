@@ -52,7 +52,8 @@ const DEFAULT_DAYS = 90;
 // v5 = writes via GET (POST was being downgraded by the 302) + action echo,
 // v6 = location + description read/write,
 // v7 = ownership flag; invitations can't be edited/deleted, declined ones hidden
-const SCRIPT_VERSION = 7;
+// v8 = find events whose ID getEventById can't resolve (imported from Outlook)
+const SCRIPT_VERSION = 8;
 
 // Public prayer-times page for the masjid the household follows. Fetched
 // server-side here so the tablet never scrapes anything directly and no
@@ -96,7 +97,7 @@ function doGet(e) {
       return json({ ok: true, action: action, event: updateEvent(fromParams(p)) });
     }
     if (action === 'delete') {
-      return json({ ok: true, action: action, deleted: deleteEvent(p.id) });
+      return json({ ok: true, action: action, deleted: deleteEvent(p.id, p.origStart || p.start) });
     }
     return json({ ok: false, action: action, error: 'Unknown action: ' + action });
   } catch (err) {
@@ -112,6 +113,7 @@ function fromParams(p) {
   function text(v) { return v === undefined ? undefined : String(v).trim(); }
   return {
     id: p.id,
+    origStart: p.origStart,
     title: text(p.title),
     start: p.start,
     end: p.end,
@@ -130,7 +132,7 @@ function doPost(e) {
     var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     if (body.action === 'create') return json({ ok: true, action: 'create', event: createEvent(body) });
     if (body.action === 'update') return json({ ok: true, action: 'update', event: updateEvent(body) });
-    if (body.action === 'delete') return json({ ok: true, action: 'delete', deleted: deleteEvent(body.id) });
+    if (body.action === 'delete') return json({ ok: true, action: 'delete', deleted: deleteEvent(body.id, body.origStart) });
     return json({ ok: false, error: 'Unknown action: ' + body.action });
   } catch (err) {
     return json({ ok: false, error: String(err) });
@@ -198,9 +200,41 @@ function createEvent(b) {
  * a result — the dashboard re-fetches after every write, so it picks up the new
  * one rather than holding a stale reference.
  */
+/**
+ * Events that arrived from Outlook/Exchange report an Outlook UID from getId()
+ * (040000008200E000…), and getEventById() cannot resolve that same value — it
+ * returns null for an event that plainly exists. That made edit and delete fail
+ * with "Event not found" for most of the family's events.
+ *
+ * So: try the direct lookup, then fall back to scanning events around the
+ * event's original start time and matching by ID. The window is small, so it's
+ * one cheap query rather than a crawl of the whole calendar.
+ */
+function findEvent(id, startIso) {
+  var c = cal(), ev = null;
+  try { ev = c.getEventById(id); } catch (e) {}
+  if (ev) return ev;
+
+  var from, to;
+  if (startIso) {
+    var s = new Date(startIso);
+    from = new Date(s.getTime() - 36 * 3600000);
+    to   = new Date(s.getTime() + 36 * 3600000);
+  } else {
+    from = new Date(Date.now() - 30 * 86400000);
+    to   = new Date(Date.now() + 400 * 86400000);
+  }
+  var list = c.getEvents(from, to);
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].getId() === id) return list[i];
+  }
+  return null;
+}
+
 function updateEvent(b) {
   if (!b.id) throw new Error('id is required');
-  var ev = cal().getEventById(b.id);
+  // origStart: where the event was, so it can be found even if this edit moves it.
+  var ev = findEvent(b.id, b.origStart || b.start);
   if (!ev) throw new Error('Event not found');
   if (!ev.isOwnedByMe()) throw new Error(NOT_OWNED_MSG);
 
@@ -233,8 +267,8 @@ var NOT_OWNED_MSG = 'NOT_OWNED: this is an invitation from someone else, so it c
  * reply to the organiser — for school events that would mean an email to the
  * school on the family's behalf, which is not what "delete" should do silently.
  */
-function deleteEvent(id) {
-  var ev = cal().getEventById(id);
+function deleteEvent(id, startIso) {
+  var ev = findEvent(id, startIso);
   if (!ev) throw new Error('Event not found');
   if (!ev.isOwnedByMe()) throw new Error(NOT_OWNED_MSG);
   ev.deleteEvent();

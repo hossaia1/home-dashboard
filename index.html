@@ -3414,7 +3414,9 @@ async function deleteCurrentEvent() {
   if (!confirm(`Delete "${ev.title}"?\n\nThis removes it from the family calendar for everyone.`)) return;
   msg.textContent = 'Deleting…';
   try {
-    await bridgeCall('delete', { id: ev.id });
+    // origStart lets the bridge locate events whose ID Google can't look up
+    // directly (anything that arrived from Outlook).
+    await bridgeCall('delete', { id: ev.id, origStart: new Date(ev.start).toISOString() });
     closeEventComposer();
     await fetchCalendar();
   } catch(e) {
@@ -3530,6 +3532,7 @@ async function saveNewEvent() {
   try {
     await bridgeCall(editingEvent ? 'update' : 'create', {
       id: editingEvent ? editingEvent.id : undefined,
+      origStart: editingEvent ? new Date(editingEvent.start).toISOString() : undefined,
       title, allDay,
       start: start.toISOString(), end: end.toISOString(),
       // Sent as a space when cleared, because bridgeCall drops empty strings and
