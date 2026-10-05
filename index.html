@@ -2481,24 +2481,48 @@ function rainVerdict(hrly) {
     .filter(({dt}) => toDateStr(dt) === dayStr && dt.getHours() >= fromH && dt.getHours() < 18);
   if (!slots.length) return null;
 
-  let maxP = 0, mm = 0, first = null;
-  slots.forEach(({dt, i}) => {
-    const p = hrly.precipitation_probability[i] ?? 0;
-    const m = (hrly.precipitation && hrly.precipitation[i]) || 0;
-    maxP = Math.max(maxP, p); mm += m;
-    if (!first && (p >= 40 || m >= 0.3)) first = dt;
-  });
+  const P  = i => hrly.precipitation_probability[i] ?? 0;
+  const MM = i => (hrly.precipitation && hrly.precipitation[i]) || 0;
+
+  let maxP = 0, mm = 0;
+  slots.forEach(({i}) => { maxP = Math.max(maxP, P(i)); mm += MM(i); });
   mm = Math.round(mm * 10) / 10;
   const when = evening ? 'tomorrow' : 'today';
-  if (maxP >= 50 || mm >= 1) {
-    return { level: 'wet', head: `Rain ${when}`,
-             sub: `${first ? 'from ' + pad(first.getHours()) + ':00 · ' : ''}${maxP}%${mm ? ' · ' + mm + ' mm' : ''}`,
-             note: 'Rain clothes' };
+  const level = (maxP >= 50 || mm >= 1) ? 'wet' : (maxP >= 25 || mm >= 0.2) ? 'maybe' : 'dry';
+  if (level === 'dry') return { level, head: `Dry ${when}`, sub: maxP ? `max ${maxP}%` : '' };
+
+  // When does it start and stop? Open-Meteo's hourly rain values describe the
+  // PRECEDING hour — the 14:00 slot is rain falling 13:00–14:00 — so a spell
+  // starts one hour before its first wet slot and ends at its last wet slot.
+  // (The old "from 14:00" was an hour late for exactly this reason.)
+  // The spell may run past 18:00, so the end is searched through the evening.
+  const wetAt = i => level === 'wet' ? (P(i) >= 40 || MM(i) >= 0.3) : (P(i) >= 25 || MM(i) >= 0.1);
+  const dayIdx = hrly.time.map((t, i) => ({ dt: new Date(t), i }))
+    .filter(({dt}) => toDateStr(dt) === dayStr && dt.getHours() >= fromH);
+  const firstPos = dayIdx.findIndex(({dt, i}) => dt.getHours() < 18 && wetAt(i));
+  let span = '', again = '';
+  if (firstPos !== -1) {
+    let lastPos = firstPos;
+    // A single dry hour inside a spell doesn't end it — that's a lull, not a stop.
+    while (lastPos + 1 < dayIdx.length &&
+           (wetAt(dayIdx[lastPos + 1].i) ||
+            (lastPos + 2 < dayIdx.length && wetAt(dayIdx[lastPos + 2].i)))) {
+      lastPos += wetAt(dayIdx[lastPos + 1].i) ? 1 : 2;
+    }
+    const startH = Math.max(fromH, dayIdx[firstPos].dt.getHours() - 1);
+    const endH   = dayIdx[lastPos].dt.getHours();
+    span = `${pad(startH)}:00–${pad(endH)}:00`;
+    // Another spell later in the school day? Say so rather than imply it's dry.
+    const later = dayIdx.slice(lastPos + 1).find(({dt, i}) => dt.getHours() < 18 && wetAt(i));
+    if (later) again = `again from ${pad(later.dt.getHours() - 1)}:00`;
   }
-  if (maxP >= 25 || mm >= 0.2) {
-    return { level: 'maybe', head: `Showers possible ${when}`, sub: `up to ${maxP}%${mm ? ' · ' + mm + ' mm' : ''}`, note: 'Pack a rain jacket' };
-  }
-  return { level: 'dry', head: `Dry ${when}`, sub: maxP ? `max ${maxP}%` : '', note: '' };
+
+  // The times are the answer people look for, so they get the big line.
+  const head = `${level === 'wet' ? 'Rain' : 'Showers'} ${span || when}`;
+  const sub  = [span ? when : '', `${level === 'wet' ? '' : 'up to '}${maxP}%`, mm ? `${mm} mm` : '',
+                again]
+                 .filter(Boolean).join(' · ');
+  return { level, head, sub };
 }
 
 function renderWeather(d) {
@@ -2553,7 +2577,7 @@ function renderWeather(d) {
         <i class="ti ${rvIcon}"></i>
         <div>
           <div class="rv-head">${rv.head}</div>
-          ${rv.sub || rv.note ? `<div class="rv-sub">${[rv.sub, rv.note].filter(Boolean).join(' — ')}</div>` : ''}
+          ${rv.sub ? `<div class="rv-sub">${rv.sub}</div>` : ''}
         </div>
       </div>` : '';
 
