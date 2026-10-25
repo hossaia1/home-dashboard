@@ -53,7 +53,13 @@ const DEFAULT_DAYS = 90;
 // v6 = location + description read/write,
 // v7 = ownership flag; invitations can't be edited/deleted, declined ones hidden
 // v8 = find events whose ID getEventById can't resolve (imported from Outlook)
-const SCRIPT_VERSION = 8;
+// v9 = optional guests on create (allow-listed), invitations emailed
+const SCRIPT_VERSION = 9;
+
+// Only these addresses can be invited through the bridge. The /exec URL is the
+// only credential, so without a list anyone holding it could make the family
+// account email invitations to arbitrary people. Add family addresses here.
+const ALLOWED_GUESTS = ['abir.hossain@elisa.fi'];
 
 // Public prayer-times page for the masjid the household follows. Fetched
 // server-side here so the tablet never scrapes anything directly and no
@@ -88,7 +94,7 @@ function doGet(e) {
     if (action === 'ping') {
       return json({ ok: true, action: action, version: SCRIPT_VERSION,
                     calendar: cal().getName(),
-                    supports: ['list', 'create', 'update', 'delete', 'masjid'] });
+                    supports: ['list', 'create', 'update', 'delete', 'masjid', 'guests'] });
     }
     if (action === 'create') {
       return json({ ok: true, action: action, event: createEvent(fromParams(p)) });
@@ -119,6 +125,7 @@ function fromParams(p) {
     end: p.end,
     location: text(p.location),
     description: text(p.description),
+    guests: text(p.guests),
     allDay: p.allDay === 'true' || p.allDay === '1'
   };
 }
@@ -182,6 +189,23 @@ function createEvent(b) {
   var c = cal();
   var ev;
 
+  // Guests: comma-separated, each must be on ALLOWED_GUESTS. With sendInvites
+  // Google emails a normal invitation the guest can accept into Outlook.
+  var allowed = ALLOWED_GUESTS.map(function (a) { return a.toLowerCase(); });
+  var guests = String(b.guests || '').split(',')
+    .map(function (g) { return g.trim().toLowerCase(); }).filter(function (g) { return g; });
+  guests.forEach(function (g) {
+    if (allowed.indexOf(g) < 0) throw new Error('Guest not allowed: ' + g + ' (add it to ALLOWED_GUESTS)');
+  });
+  if (guests.length && !b.allDay) {
+    if (!b.end) throw new Error('end is required for timed events');
+    ev = c.createEvent(b.title, new Date(b.start), new Date(b.end), {
+      location: b.location || '', description: b.description || '',
+      guests: guests.join(','), sendInvites: true
+    });
+    return { id: ev.getId(), title: ev.getTitle(), start: ev.getStartTime().toISOString(), invited: guests };
+  }
+
   if (b.allDay) {
     ev = c.createAllDayEvent(b.title, new Date(b.start));
   } else {
@@ -191,7 +215,7 @@ function createEvent(b) {
   if (b.location)    ev.setLocation(b.location);
   if (b.description) ev.setDescription(b.description);
 
-  return { id: ev.getId(), title: ev.getTitle(), start: ev.getStartTime().toISOString() };
+  return { id: ev.getId(), title: ev.getTitle(), start: ev.getStartTime().toISOString(), invited: [] };
 }
 
 /**

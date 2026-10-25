@@ -463,6 +463,15 @@
     .hb-week { display: flex; gap: 3px; }
     .hb-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--border-2); }
     .hb-dot.on { background: var(--green); }
+    .hb-dot.part { background: var(--edge-green); box-shadow: inset 0 0 0 2px var(--green); }
+    /* Prayer: five taps a day. The left box becomes a counter, the pills toggle. */
+    .hb-check.count { color: var(--text-3); font-size: calc(18px * var(--ui-scale, 1)); font-weight: 700; cursor: default; }
+    .hb-check.count.part { border-color: var(--edge-green); color: var(--green); }
+    .hb-slots { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+    .hb-slot { min-height: 44px; padding: 0 12px; border-radius: 22px; cursor: pointer;
+               border: 2px solid var(--border-2); background: var(--card); color: var(--text-3);
+               font-size: calc(15px * var(--ui-scale, 1)); font-weight: 600; display: flex; align-items: center; gap: 4px; }
+    .hb-slot.on { background: var(--green); border-color: var(--green); color: var(--card); }
     /* Raised from 42%: today's events are now larger and more emphasised, and
        three of them were being sliced through the middle of a card. Today earns
        the room — Upcoming keeps the remainder and scrolls. */
@@ -3754,7 +3763,22 @@ function saveHabits(h) {
   try { localStorage.setItem('hd_habits', JSON.stringify(h)); } catch(_) {}
 }
 const habitKey = (person, habit) => person + '|' + habit;
-function habitDoneOn(h, dateStr, person, habit) { return !!(h.log[dateStr] && h.log[dateStr][habitKey(person, habit)]); }
+
+// A "Prayer" habit is ticked once per prayer rather than once per day. Its log
+// entry is the list of prayers done that day; tapping a prayer again removes it.
+// It only counts as done (for the chip, the dot and the streak) at 5/5.
+const PRAYER_SLOTS = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+const isPrayerHabit = habit => /^(prayers?|salah|salat|namaz)$/i.test(String(habit).trim());
+function habitCountOn(h, dateStr, person, habit) {
+  const v = h.log[dateStr] && h.log[dateStr][habitKey(person, habit)];
+  if (!v) return 0;
+  if (Array.isArray(v)) return v.length;
+  return isPrayerHabit(habit) ? PRAYER_SLOTS.length : 1;   // legacy single tick = full day
+}
+function habitDoneOn(h, dateStr, person, habit) {
+  const need = isPrayerHabit(habit) ? PRAYER_SLOTS.length : 1;
+  return habitCountOn(h, dateStr, person, habit) >= need;
+}
 
 // Consecutive days done. Not yet ticked today doesn't break it — the day isn't over.
 function habitStreak(h, person, habit) {
@@ -3817,12 +3841,28 @@ function renderHabitList() {
     // Last 7 days, oldest first, so you can see the pattern at a glance.
     const week = Array.from({ length: 7 }, (_, k) => {
       const d = new Date(); d.setDate(d.getDate() - (6 - k));
-      return `<span class="hb-dot${habitDoneOn(h, toDateStr(d), p, habit) ? ' on' : ''}"></span>`;
+      const ds = toDateStr(d);
+      const cls = habitDoneOn(h, ds, p, habit) ? ' on' : (habitCountOn(h, ds, p, habit) ? ' part' : '');
+      return `<span class="hb-dot${cls}"></span>`;
     }).join('');
+
+    const multi = isPrayerHabit(habit);
+    const raw = (h.log[today] || {})[habitKey(p, habit)];
+    const doneSlots = Array.isArray(raw) ? raw : (raw && multi ? PRAYER_SLOTS : []);
+    const count = habitCountOn(h, today, p, habit);
+    const lead = multi
+      ? `<div class="hb-check count${done ? ' done' : (count ? ' part' : '')}" aria-label="${count} of 5 prayers today">${done ? '<i class="ti ti-check"></i>' : count + '/5'}</div>`
+      : `<button class="hb-check${done ? ' done' : ''}" onclick="toggleHabit(${idx})"
+              aria-label="${esc(habit)}: ${done ? 'done' : 'not done'} today"><i class="ti ti-check"></i></button>`;
+    const slots = multi ? `<div class="hb-slots">${PRAYER_SLOTS.map(s => {
+        const on = doneSlots.includes(s);
+        return `<button class="hb-slot${on ? ' on' : ''}" onclick="toggleHabitSlot(${idx}, '${s}')"
+                  aria-pressed="${on}">${on ? '<i class="ti ti-check"></i>' : ''}${s}</button>`;
+      }).join('')}</div>` : '';
+
     return `<div class="hb-row${done ? ' done' : ''}">
-      <button class="hb-check${done ? ' done' : ''}" onclick="toggleHabit(${idx})"
-              aria-label="${esc(habit)}: ${done ? 'done' : 'not done'} today"><i class="ti ti-check"></i></button>
-      <div class="hb-name">${esc(habit)}
+      ${lead}
+      <div class="hb-name">${esc(habit)}${slots}
         <div style="display:flex;gap:10px;align-items:center;margin-top:4px">
           <div class="hb-week">${week}</div>
           ${streak ? `<span class="hb-streak"><i class="ti ti-flame"></i> ${streak} day${streak > 1 ? 's' : ''}</span>` : ''}
@@ -3840,6 +3880,20 @@ function toggleHabit(idx) {
   h.log[today] = h.log[today] || {};
   const k = habitKey(p, habit);
   if (h.log[today][k]) delete h.log[today][k]; else h.log[today][k] = true;
+  saveHabits(h); renderHabitList(); renderHabitPeople();
+}
+
+// Tick or un-tick one prayer for today. The list is kept in prayer order.
+function toggleHabitSlot(idx, slot) {
+  const h = loadHabits(), p = habitPerson, habit = h.people[p][idx];
+  const today = toDateStr(new Date());
+  h.log[today] = h.log[today] || {};
+  const k = habitKey(p, habit);
+  const cur = h.log[today][k];
+  let set = Array.isArray(cur) ? cur.slice() : (cur ? PRAYER_SLOTS.slice() : []);
+  set = set.includes(slot) ? set.filter(s => s !== slot) : set.concat(slot);
+  set = PRAYER_SLOTS.filter(s => set.includes(s));
+  if (set.length) h.log[today][k] = set; else delete h.log[today][k];
   saveHabits(h); renderHabitList(); renderHabitPeople();
 }
 
